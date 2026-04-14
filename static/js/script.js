@@ -98,21 +98,74 @@ async function loadData() {
     filterTable();
 }
 
+let searchTimer = null;
+
 function filterTable() {
-    const search = document.getElementById('searchBox').value.toLowerCase();
+    const search = document.getElementById('searchBox').value.trim();
 
-    let filtered = allErrors;
-
-    if (search) {
-        filtered = filtered.filter(e =>
-            (e.description || '').toLowerCase().includes(search) ||
-            (e.sessionId || '').toLowerCase().includes(search) ||
-            (e.toolName || '').toLowerCase().includes(search) ||
-            (e.details || '').toLowerCase().includes(search)
-        );
+    // If empty, show the normal errors list
+    if (!search) {
+        renderTable(allErrors);
+        return;
     }
 
-    renderTable(filtered);
+    // Debounce: wait 400ms after typing stops before hitting FTS
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runFtsSearch(search), 400);
+}
+
+async function runFtsSearch(query) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">🔍 Searching...</td></tr>';
+
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const data = await resp.json();
+
+        if (data.error) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">Search error: ${escapeHtml(data.error)}</td></tr>`;
+            return;
+        }
+
+        if (!data.hits || data.hits.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">No results for "${escapeHtml(query)}"</td></tr>`;
+            return;
+        }
+
+        const rows = data.hits.map(hit => renderSearchHitRow(hit)).join('');
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:8px;color:#888;">🔍 ${data.total} results (${(data.took / 1000000).toFixed(1)}ms)</td></tr>` + rows;
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty">Search failed: ${e.message}</td></tr>`;
+    }
+}
+
+function renderSearchHitRow(hit) {
+    const docId = hit.docId || '';
+    const fields = hit.fields || {};
+    const fragments = hit.fragments || {};
+
+    // Build description from fragments (highlighted) or fields
+    let desc = '';
+    if (fragments.user_prompt) {
+        desc = fragments.user_prompt.join(' ... ');
+    } else if (fields.user_prompt) {
+        desc = escapeHtml(String(fields.user_prompt).slice(0, 200));
+    }
+
+    const src = fields.src || '';
+    const score = hit.score || 0;
+
+    return `
+        <tr>
+            <td><span class="type-badge type-error">${escapeHtml(src)}</span></td>
+            <td class="timestamp">${score}</td>
+            <td><a class="session-link" onclick="viewReport('${escapeAttr(docId)}')">${docId.slice(0, 20)}...</a></td>
+            <td class="description">${desc || escapeHtml(docId)}</td>
+            <td>
+                <button class="view-btn" onclick="viewReport('${escapeAttr(docId)}')">View</button>
+            </td>
+        </tr>
+    `;
 }
 
 function renderTable(errors) {
@@ -166,10 +219,17 @@ async function viewReport(docId) {
     let session = sessionCache[docId];
     if (!session) {
         try {
-            const resp = await fetch(`/api/session/${docId}`);
-            session = await resp.json();
-            sessionCache[docId] = session;
+            const resp = await fetch(`/api/session/${encodeURIComponent(docId)}`);
+            if (resp.ok) {
+                session = await resp.json();
+                sessionCache[docId] = session;
+            } else {
+                const errBody = await resp.json().catch(() => ({}));
+                console.warn(`GET session ${docId}: ${resp.status}`, errBody.error || errBody);
+                session = null;
+            }
         } catch (err) {
+            console.warn(`GET session ${docId} failed:`, err);
             session = null;
         }
     }
@@ -197,95 +257,144 @@ function renderFullJson(data) {
     container.innerHTML = html;
 }
 
+function tryParseJson(val) {
+    if (typeof val !== 'string') return val;
+    try {
+        const parsed = JSON.parse(val);
+        if (typeof parsed === 'object' && parsed !== null) return parsed;
+    } catch (e) {}
+    return val;
+}
+
+function renderJsonValue(val) {
+    val = tryParseJson(val);
+    if (typeof val === 'object' && val !== null) {
+        return `<pre class="debug-json">${syntaxHighlight(escapeHtml(JSON.stringify(val, null, 2)))}</pre>`;
+    }
+    return `<pre class="debug-json">${escapeHtml(String(val))}</pre>`;
+}
+
+function renderToolCard(tool, index) {
+    const name = tool.name || `tool_${index}`;
+    const hasError = tool.error && Object.keys(tool.error).length > 0;
+    const execTime = (tool.meta || {}).exec_time;
+    const priorityClass = hasError ? 'priority-high' : 'priority-low';
+    const icon = hasError ? '⚠️' : '🔧';
+    const timeStr = execTime != null ? `${execTime}s` : '';
+
+    let body = '';
+
+    if (tool.params) {
+        body += `<div class="debug-label">Params</div><div class="debug-value">${renderJsonValue(tool.params)}</div>`;
+    }
+    if (hasError) {
+        body += `<div class="debug-label">Error</div><div class="debug-value error-highlight">${renderJsonValue(tool.error)}</div>`;
+    }
+    if (tool.response) {
+        let responseDisplay = tool.response;
+        if (responseDisplay.content && Array.isArray(responseDisplay.content)) {
+            responseDisplay.content = responseDisplay.content.map(c => {
+                if (c.text) c.text = tryParseJson(c.text);
+                return c;
+            });
+        }
+        if (responseDisplay.structuredContent) {
+            responseDisplay = responseDisplay.structuredContent;
+        }
+        body += `<div class="debug-label">Response</div><div class="debug-value">${renderJsonValue(responseDisplay)}</div>`;
+    }
+
+    return `
+        <div class="debug-section ${priorityClass}">
+            <div class="debug-section-header tool-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <span>${icon} #${index} — ${escapeHtml(name)} ${timeStr ? `<span class="tool-time">(${timeStr})</span>` : ''}</span>
+                <span class="collapse-arrow">▼</span>
+            </div>
+            <div class="debug-section-body tool-card-body">${body}</div>
+        </div>
+    `;
+}
+
+function renderChatEntry(entry, index) {
+    const role = entry.role || 'unknown';
+    const icon = role === 'user' ? '👤' : role === 'assistant' ? '🤖' : '💬';
+    let content = entry.content || '';
+    content = tryParseJson(content);
+
+    return `
+        <div class="debug-section priority-low">
+            <div class="debug-section-header tool-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <span>${icon} #${index} — ${escapeHtml(role)}</span>
+                <span class="collapse-arrow">▼</span>
+            </div>
+            <div class="debug-section-body tool-card-body">${renderJsonValue(content)}</div>
+        </div>
+    `;
+}
+
 function renderAiInputs(error, report, session) {
     const container = document.getElementById('tabAi');
+    const data = session || {};
 
-    const debugPackage = {
-        _instructions: "This is a debug package for analyzing a tool error in grokCoder. Use this context to help debug the issue.",
-        error_summary: error ? {
-            type: error.type,
-            toolName: error.toolName,
-            description: error.description,
-            execTime: error.execTime,
-            sessionId: error.sessionId
-        } : null,
-        user_prompt: error?.userPrompt || report?.user_prompt || 'N/A',
-        report_context: report ? {
-            docId: report.docId,
-            src: report.src,
-            toolCount: report.toolCount,
-            chatHistoryLen: report.chatHistoryLen,
-            meta: report['~meta'] || null
-        } : null,
-        full_session: session || null
-    };
+    const userPrompt = data.user_prompt || error?.userPrompt || report?.user_prompt || '';
+    const src = data.src || report?.src || '';
+    const toolsCalled = data.tools_called || [];
+    const chatHistory = data.chat_history || [];
 
-    const packageJson = JSON.stringify(debugPackage, null, 2);
+    let html = `<h3>🤖 Session Details</h3>`;
 
-    let html = `
-        <h3>🤖 AI Debug Inputs</h3>
-        
-        <div class="ai-inputs-intro">
-            <p><strong>Copy this debug package and paste into your AI assistant.</strong></p>
-            <p>It contains all the context needed to analyze this tool error.</p>
-            <button class="copy-btn large" onclick="copyToClipboard(this, ${JSON.stringify(packageJson)})">
-                📋 Copy Full Debug Package
-            </button>
+    // Overview card
+    html += `
+        <div class="debug-section priority-medium">
+            <div class="debug-section-header"><span>📋 Overview</span></div>
+            <div class="debug-section-body">
+                <div class="overview-grid">
+                    <div class="debug-label">Source</div>
+                    <div class="debug-value">${escapeHtml(src) || '-'}</div>
+                    <div class="debug-label">Tools Called</div>
+                    <div class="debug-value">${toolsCalled.length}</div>
+                    <div class="debug-label">Chat History</div>
+                    <div class="debug-value">${chatHistory.length} entries</div>
+                </div>
+            </div>
         </div>
     `;
 
-    if (debugPackage.error_summary) {
+    // User Prompt
+    if (userPrompt) {
         html += `
             <div class="debug-section priority-high">
                 <div class="debug-section-header">
-                    <span>🚨 Error Summary</span>
+                    <span>📝 User Prompt</span>
+                    <button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard(this, ${JSON.stringify(JSON.stringify(userPrompt))})">📋</button>
                 </div>
                 <div class="debug-section-body">
-                    <div class="debug-label">Tool</div>
-                    <div class="debug-value">${escapeHtml(debugPackage.error_summary.toolName || '')}</div>
-                    <div class="debug-label">Description</div>
-                    <div class="debug-value">${escapeHtml(debugPackage.error_summary.description || '')}</div>
-                    <div class="debug-label">Exec Time</div>
-                    <div class="debug-value">${debugPackage.error_summary.execTime != null ? debugPackage.error_summary.execTime + 's' : '-'}</div>
+                    <pre class="debug-json">${escapeHtml(userPrompt)}</pre>
                 </div>
             </div>
         `;
     }
 
-    html += `
-        <div class="debug-section priority-high">
-            <div class="debug-section-header">
-                <span>📝 User Prompt</span>
-                <button class="copy-btn" onclick="copyToClipboard(this, ${JSON.stringify(debugPackage.user_prompt)})">📋</button>
-            </div>
-            <div class="debug-section-body">
-                <pre>${escapeHtml(debugPackage.user_prompt)}</pre>
-            </div>
-        </div>
-    `;
-
-    if (debugPackage.report_context) {
-        html += `
-            <div class="debug-section priority-medium">
-                <div class="debug-section-header">
-                    <span>📦 Report Context</span>
-                </div>
-                <div class="debug-section-body">
-                    <pre>${escapeHtml(JSON.stringify(debugPackage.report_context, null, 2))}</pre>
-                </div>
-            </div>
-        `;
+    // Tools Called
+    if (toolsCalled.length > 0) {
+        html += `<h3>🔧 Tools Called (${toolsCalled.length})</h3>`;
+        html += toolsCalled.map((t, i) => renderToolCard(t, i)).join('');
     }
 
+    // Chat History
+    if (chatHistory.length > 0) {
+        html += `<h3>💬 Chat History (${chatHistory.length})</h3>`;
+        html += chatHistory.map((c, i) => renderChatEntry(c, i)).join('');
+    }
+
+    // Copy full JSON button at bottom
+    const fullJson = JSON.stringify(data, null, 2);
     html += `
-        <div class="debug-section priority-low">
-            <div class="debug-section-header">
-                <span>📊 Full Debug Package (JSON)</span>
-                <button class="copy-btn" onclick="copyToClipboard(this, ${JSON.stringify(packageJson)})">📋</button>
-            </div>
-            <div class="debug-section-body">
-                <pre>${escapeHtml(packageJson)}</pre>
-            </div>
+        <div class="ai-inputs-intro" style="margin-top: 20px;">
+            <p><strong>Copy full session JSON for your AI assistant.</strong></p>
+            <button class="copy-btn large" onclick="copyToClipboard(this, ${JSON.stringify(fullJson)})">
+                📋 Copy Full JSON
+            </button>
         </div>
     `;
 

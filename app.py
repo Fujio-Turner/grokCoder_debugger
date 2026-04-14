@@ -32,6 +32,7 @@ CB_PASS = os.environ.get('CB_PASS', '')
 CB_BUCKET = os.environ.get('CB_BUCKET', 'grokCoder')
 CB_SCOPE = os.environ.get('CB_SCOPE', 'continue')
 CB_COLLECTION = os.environ.get('CB_COLLECTION', 'report')
+CB_FTS_INDEX = os.environ.get('CB_FTS_INDEX', 'grokCoder_Dugger_v1')
 
 # Build configs list - env vars create default cluster, config.json can add more
 configs = []
@@ -43,7 +44,8 @@ if CB_HOST and CB_USER and CB_PASS:
         'pass': CB_PASS,
         'bucket': CB_BUCKET,
         'scope': CB_SCOPE,
-        'collection': CB_COLLECTION
+        'collection': CB_COLLECTION,
+        'fts_index': CB_FTS_INDEX
     })
 
 # Optionally load additional clusters from config.json
@@ -209,6 +211,75 @@ def get_errors():
         'reports': reports
     })
 
+@app.route('/api/search')
+def search_fts():
+    """Full-text search against the Capella FTS index."""
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify({'hits': [], 'total': 0})
+
+    cluster = request.args.get('cluster', 'Default')
+    cluster_config = next((c for c in configs if c['name'] == cluster), configs[0])
+
+    host_str = urlparse(cluster_config['host']).netloc or cluster_config['host']
+    bucket = cluster_config['bucket']
+    scope = cluster_config.get('scope', 'continue')
+    fts_index = cluster_config.get('fts_index', CB_FTS_INDEX)
+
+    url = f"https://{host_str}/_p/fts/api/bucket/{bucket}/scope/{scope}/index/{fts_index}/query"
+    auth = HTTPBasicAuth(cluster_config['user'], cluster_config['pass'])
+
+    payload = {
+        "query": {"query": q},
+        "size": 50,
+        "fields": ["*"],
+        "highlight": {
+            "style": "html",
+            "fields": ["user_prompt", "src", "tools_called.name", "tools_called.params"]
+        }
+    }
+
+    print(f"\n{'='*60}")
+    print(f"FTS → {url}")
+    print(f"{'='*60}")
+    print(json.dumps(payload, indent=2))
+    print(f"{'='*60}\n")
+
+    try:
+        resp = requests.post(
+            url,
+            auth=auth,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=30
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        hits = []
+        for hit in data.get('hits', []):
+            hits.append({
+                'docId': hit.get('id', ''),
+                'score': round(hit.get('score', 0), 4),
+                'fields': hit.get('fields', {}),
+                'fragments': hit.get('fragments', {}),
+            })
+
+        return jsonify({
+            'hits': hits,
+            'total': data.get('total_hits', 0),
+            'took': data.get('took', 0),
+        })
+    except requests.exceptions.HTTPError as e:
+        return _handle_capella_http_error(e, context='FTS search')
+    except requests.exceptions.ConnectionError:
+        return jsonify({'error': f'Cannot reach {host_str}'}), 503
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'FTS search timed out'}), 504
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def _fetch_document(config, doc_key):
     """Fetch a document from Capella Data API. Returns (doc_dict, None) or (None, error_response)."""
     bucket = config['bucket']
@@ -217,13 +288,20 @@ def _fetch_document(config, doc_key):
     host_str = config['host']
     if host_str.startswith('couchbases://'):
         host_str = host_str.replace('couchbases://', '')
+    elif host_str.startswith('https://'):
+        host_str = host_str.replace('https://', '')
+    elif host_str.startswith('http://'):
+        host_str = host_str.replace('http://', '')
     url = f"https://{host_str}/v1/buckets/{bucket}/scopes/{scope}/collections/{collection}/documents/{doc_key}"
+    print(f"GET doc → {url}")
     auth = HTTPBasicAuth(config['user'], config['pass'])
     try:
         resp = requests.get(url, auth=auth, timeout=30)
+        print(f"GET doc ← {resp.status_code} ({len(resp.content)} bytes)")
         resp.raise_for_status()
         return resp.json(), None
     except requests.exceptions.HTTPError as e:
+        print(f"GET doc ← {e.response.status_code}: {e.response.text[:300]}")
         return None, _handle_capella_http_error(e, context=f'GET document {doc_key}')
     except requests.exceptions.ConnectionError:
         msg = f'Cannot reach {host_str}. Check CB_HOST.'

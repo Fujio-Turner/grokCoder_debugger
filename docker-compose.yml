@@ -5,4 +5,8 @@ services:
       - "7777:7777"
     env_file:
       - .env
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
     restart: unless-stopped
