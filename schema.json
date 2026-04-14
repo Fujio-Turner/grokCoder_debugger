@@ -1,0 +1,582 @@
+[
+  [
+    {
+      "#docs": 1,
+      "$schema": "http://json-schema.org/draft-06/schema",
+      "Flavor": "`src` = \"refine_request\", `user_prompt` = \"add_release_notes.py make a pla...\"",
+      "properties": {
+        "chat_history": {
+          "#docs": 1,
+          "%docs": 100,
+          "items": {},
+          "maxItems": 0,
+          "minItems": 0,
+          "nestingDepth": 0,
+          "sampleSize": 0,
+          "samples": [
+            []
+          ],
+          "type": "array"
+        },
+        "src": {
+          "#docs": 1,
+          "%docs": 100,
+          "nestingDepth": 0,
+          "samples": [
+            "refine_request"
+          ],
+          "type": "string"
+        },
+        "tools_called": {
+          "#docs": 1,
+          "%docs": 100,
+          "items": {
+            "#docs": 1,
+            "$schema": "http://json-schema.org/draft-06/schema",
+            "properties": {
+              "error": {
+                "nestingDepth": 2,
+                "properties": {},
+                "samples": [
+                  {}
+                ],
+                "type": "object"
+              },
+              "meta": {
+                "nestingDepth": 2,
+                "properties": {
+                  "exec_time": {
+                    "nestingDepth": 3,
+                    "samples": [
+                      13.634
+                    ],
+                    "type": "number"
+                  }
+                },
+                "samples": [
+                  {
+                    "exec_time": 13.634
+                  }
+                ],
+                "type": "object"
+              },
+              "name": {
+                "nestingDepth": 2,
+                "samples": [
+                  "refine_request"
+                ],
+                "type": "string"
+              },
+              "params": {
+                "nestingDepth": 2,
+                "properties": {
+                  "request": {
+                    "nestingDepth": 3,
+                    "samples": [
+                      "add_release_notes.py make a pl..."
+                    ],
+                    "type": "string"
+                  }
+                },
+                "samples": [
+                  {
+                    "request": "add_release_notes.py make a plan to refactor `add_release_notes_to_file`"
+                  }
+                ],
+                "type": "object"
+              },
+              "response": {
+                "nestingDepth": 2,
+                "properties": {
+                  "content": {
+                    "items": {
+                      "#docs": 1,
+                      "$schema": "http://json-schema.org/draft-06/schema",
+                      "properties": {
+                        "text": {
+                          "nestingDepth": 5,
+                          "samples": [
+                            "{\n  \"originalRequest\": \"add_re..."
+                          ],
+                          "type": "string"
+                        },
+                        "type": {
+                          "nestingDepth": 5,
+                          "samples": [
+                            "text"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "maxItems": 1,
+                    "minItems": 1,
+                    "nestingDepth": 3,
+                    "sampleSize": 0,
+                    "samples": [
+                      [
+                        {
+                          "text": "{\n  \"originalRequest\": \"add_release_notes.py make a plan to refactor `add_release_notes_to_file`\",\n  \"objective\": \"Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.\",\n  \"refinedRequest\": \"Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples.\",\n  \"constraints\": [\n    \"Preserve the function's external API (signature, inputs, outputs, and side effects)\",\n    \"Ensure backward compatibility\",\n    \"Adhere to PEP 8 style guidelines\",\n    \"Minimize changes to unrelated parts of the script\"\n  ],\n  \"assumptions\": [\n    \"The script `add_release_notes.py` exists and defines `add_release_notes_to_file`\",\n    \"The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)\",\n    \"Python 3.8+ environment with standard libraries (no external deps unless specified)\",\n    \"No unit tests exist initially, so plan includes adding them\"\n  ],\n  \"acceptanceCriteria\": [\n    \"Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)\",\n    \"Outlines sequential refactoring steps with rationale, pseudocode, or snippets\",\n    \"Includes validation strategy (e.g., tests, manual checks)\",\n    \"Estimates effort (low/medium/high) and potential risks\",\n    \"Plan is executable by a developer without further clarification\"\n  ],\n  \"clarifyingQuestions\": [\n    \"Can you provide the full source code of `add_release_notes.py`?\",\n    \"What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?\",\n    \"Does the function depend on external libraries, config files, or environment variables?\",\n    \"What file format does it target (e.g., Markdown, JSON)?\",\n    \"Are there existing tests or examples of input/output?\"\n  ],\n  \"promptBrief\": {\n    \"objective\": \"Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.\",\n    \"hardConstraints\": [\n      \"No changes to function signature or core behavior\",\n      \"No new external dependencies\",\n      \"Refactor in-place without breaking existing calls\"\n    ],\n    \"acceptanceChecks\": [\n      \"Plan covers code smells, modularity, robustness\",\n      \"Includes diff-like snippets or pseudocode\",\n      \"Verifies plan maintains functionality via tests/examples\",\n      \"Total plan <2000 words, actionable in 1-2 hours\"\n    ],\n    \"assumptions\": [\n      \"Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None\",\n      \"Appends notes to file atomically\",\n      \"No async or multiprocessing needs\"\n    ],\n    \"openQuestions\": [\n      \"Source code?\",\n      \"Refactor priorities (e.g., speed vs. safety)?\",\n      \"Target Python version?\"\n    ]\n  }\n}",
+                          "type": "text"
+                        }
+                      ]
+                    ],
+                    "type": "array"
+                  },
+                  "structuredContent": {
+                    "nestingDepth": 3,
+                    "properties": {
+                      "acceptanceCriteria": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "minItems": 5,
+                        "nestingDepth": 4,
+                        "sampleSize": 0,
+                        "samples": [
+                          [
+                            "Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)",
+                            "Outlines sequential refactoring steps with rationale, pseudocode, or snippets",
+                            "Includes validation strategy (e.g., tests, manual checks)",
+                            "Estimates effort (low/medium/high) and potential risks",
+                            "Plan is executable by a developer without further clarification"
+                          ]
+                        ],
+                        "type": "array"
+                      },
+                      "assumptions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "maxItems": 4,
+                        "minItems": 4,
+                        "nestingDepth": 4,
+                        "sampleSize": 0,
+                        "samples": [
+                          [
+                            "The script `add_release_notes.py` exists and defines `add_release_notes_to_file`",
+                            "The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)",
+                            "Python 3.8+ environment with standard libraries (no external deps unless specified)",
+                            "No unit tests exist initially, so plan includes adding them"
+                          ]
+                        ],
+                        "type": "array"
+                      },
+                      "clarifyingQuestions": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "minItems": 5,
+                        "nestingDepth": 4,
+                        "sampleSize": 0,
+                        "samples": [
+                          [
+                            "Can you provide the full source code of `add_release_notes.py`?",
+                            "What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?",
+                            "Does the function depend on external libraries, config files, or environment variables?",
+                            "What file format does it target (e.g., Markdown, JSON)?",
+                            "Are there existing tests or examples of input/output?"
+                          ]
+                        ],
+                        "type": "array"
+                      },
+                      "constraints": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "maxItems": 4,
+                        "minItems": 4,
+                        "nestingDepth": 4,
+                        "sampleSize": 0,
+                        "samples": [
+                          [
+                            "Preserve the function's external API (signature, inputs, outputs, and side effects)",
+                            "Ensure backward compatibility",
+                            "Adhere to PEP 8 style guidelines",
+                            "Minimize changes to unrelated parts of the script"
+                          ]
+                        ],
+                        "type": "array"
+                      },
+                      "objective": {
+                        "nestingDepth": 4,
+                        "samples": [
+                          "Develop a detailed, step-by-st..."
+                        ],
+                        "type": "string"
+                      },
+                      "originalRequest": {
+                        "nestingDepth": 4,
+                        "samples": [
+                          "add_release_notes.py make a pl..."
+                        ],
+                        "type": "string"
+                      },
+                      "promptBrief": {
+                        "nestingDepth": 4,
+                        "properties": {
+                          "acceptanceChecks": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 4,
+                            "minItems": 4,
+                            "nestingDepth": 5,
+                            "sampleSize": 0,
+                            "samples": [
+                              [
+                                "Plan covers code smells, modularity, robustness",
+                                "Includes diff-like snippets or pseudocode",
+                                "Verifies plan maintains functionality via tests/examples",
+                                "Total plan <2000 words, actionable in 1-2 hours"
+                              ]
+                            ],
+                            "type": "array"
+                          },
+                          "assumptions": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 3,
+                            "minItems": 3,
+                            "nestingDepth": 5,
+                            "sampleSize": 0,
+                            "samples": [
+                              [
+                                "Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None",
+                                "Appends notes to file atomically",
+                                "No async or multiprocessing needs"
+                              ]
+                            ],
+                            "type": "array"
+                          },
+                          "hardConstraints": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 3,
+                            "minItems": 3,
+                            "nestingDepth": 5,
+                            "sampleSize": 0,
+                            "samples": [
+                              [
+                                "No changes to function signature or core behavior",
+                                "No new external dependencies",
+                                "Refactor in-place without breaking existing calls"
+                              ]
+                            ],
+                            "type": "array"
+                          },
+                          "objective": {
+                            "nestingDepth": 5,
+                            "samples": [
+                              "Produce a structured refactori..."
+                            ],
+                            "type": "string"
+                          },
+                          "openQuestions": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "maxItems": 3,
+                            "minItems": 3,
+                            "nestingDepth": 5,
+                            "sampleSize": 0,
+                            "samples": [
+                              [
+                                "Source code?",
+                                "Refactor priorities (e.g., speed vs. safety)?",
+                                "Target Python version?"
+                              ]
+                            ],
+                            "type": "array"
+                          }
+                        },
+                        "samples": [
+                          {
+                            "acceptanceChecks": [
+                              "Plan covers code smells, modularity, robustness",
+                              "Includes diff-like snippets or pseudocode",
+                              "Verifies plan maintains functionality via tests/examples",
+                              "Total plan <2000 words, actionable in 1-2 hours"
+                            ],
+                            "assumptions": [
+                              "Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None",
+                              "Appends notes to file atomically",
+                              "No async or multiprocessing needs"
+                            ],
+                            "hardConstraints": [
+                              "No changes to function signature or core behavior",
+                              "No new external dependencies",
+                              "Refactor in-place without breaking existing calls"
+                            ],
+                            "objective": "Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.",
+                            "openQuestions": [
+                              "Source code?",
+                              "Refactor priorities (e.g., speed vs. safety)?",
+                              "Target Python version?"
+                            ]
+                          }
+                        ],
+                        "type": "object"
+                      },
+                      "refinedRequest": {
+                        "nestingDepth": 4,
+                        "samples": [
+                          "Create a comprehensive refacto..."
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "samples": [
+                      {
+                        "acceptanceCriteria": [
+                          "Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)",
+                          "Outlines sequential refactoring steps with rationale, pseudocode, or snippets",
+                          "Includes validation strategy (e.g., tests, manual checks)",
+                          "Estimates effort (low/medium/high) and potential risks",
+                          "Plan is executable by a developer without further clarification"
+                        ],
+                        "assumptions": [
+                          "The script `add_release_notes.py` exists and defines `add_release_notes_to_file`",
+                          "The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)",
+                          "Python 3.8+ environment with standard libraries (no external deps unless specified)",
+                          "No unit tests exist initially, so plan includes adding them"
+                        ],
+                        "clarifyingQuestions": [
+                          "Can you provide the full source code of `add_release_notes.py`?",
+                          "What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?",
+                          "Does the function depend on external libraries, config files, or environment variables?",
+                          "What file format does it target (e.g., Markdown, JSON)?",
+                          "Are there existing tests or examples of input/output?"
+                        ],
+                        "constraints": [
+                          "Preserve the function's external API (signature, inputs, outputs, and side effects)",
+                          "Ensure backward compatibility",
+                          "Adhere to PEP 8 style guidelines",
+                          "Minimize changes to unrelated parts of the script"
+                        ],
+                        "objective": "Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.",
+                        "originalRequest": "add_release_notes.py make a plan to refactor `add_release_notes_to_file`",
+                        "promptBrief": {
+                          "acceptanceChecks": [
+                            "Plan covers code smells, modularity, robustness",
+                            "Includes diff-like snippets or pseudocode",
+                            "Verifies plan maintains functionality via tests/examples",
+                            "Total plan <2000 words, actionable in 1-2 hours"
+                          ],
+                          "assumptions": [
+                            "Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None",
+                            "Appends notes to file atomically",
+                            "No async or multiprocessing needs"
+                          ],
+                          "hardConstraints": [
+                            "No changes to function signature or core behavior",
+                            "No new external dependencies",
+                            "Refactor in-place without breaking existing calls"
+                          ],
+                          "objective": "Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.",
+                          "openQuestions": [
+                            "Source code?",
+                            "Refactor priorities (e.g., speed vs. safety)?",
+                            "Target Python version?"
+                          ]
+                        },
+                        "refinedRequest": "Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples."
+                      }
+                    ],
+                    "type": "object"
+                  }
+                },
+                "samples": [
+                  {
+                    "content": [
+                      {
+                        "text": "{\n  \"originalRequest\": \"add_release_notes.py make a plan to refactor `add_release_notes_to_file`\",\n  \"objective\": \"Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.\",\n  \"refinedRequest\": \"Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples.\",\n  \"constraints\": [\n    \"Preserve the function's external API (signature, inputs, outputs, and side effects)\",\n    \"Ensure backward compatibility\",\n    \"Adhere to PEP 8 style guidelines\",\n    \"Minimize changes to unrelated parts of the script\"\n  ],\n  \"assumptions\": [\n    \"The script `add_release_notes.py` exists and defines `add_release_notes_to_file`\",\n    \"The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)\",\n    \"Python 3.8+ environment with standard libraries (no external deps unless specified)\",\n    \"No unit tests exist initially, so plan includes adding them\"\n  ],\n  \"acceptanceCriteria\": [\n    \"Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)\",\n    \"Outlines sequential refactoring steps with rationale, pseudocode, or snippets\",\n    \"Includes validation strategy (e.g., tests, manual checks)\",\n    \"Estimates effort (low/medium/high) and potential risks\",\n    \"Plan is executable by a developer without further clarification\"\n  ],\n  \"clarifyingQuestions\": [\n    \"Can you provide the full source code of `add_release_notes.py`?\",\n    \"What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?\",\n    \"Does the function depend on external libraries, config files, or environment variables?\",\n    \"What file format does it target (e.g., Markdown, JSON)?\",\n    \"Are there existing tests or examples of input/output?\"\n  ],\n  \"promptBrief\": {\n    \"objective\": \"Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.\",\n    \"hardConstraints\": [\n      \"No changes to function signature or core behavior\",\n      \"No new external dependencies\",\n      \"Refactor in-place without breaking existing calls\"\n    ],\n    \"acceptanceChecks\": [\n      \"Plan covers code smells, modularity, robustness\",\n      \"Includes diff-like snippets or pseudocode\",\n      \"Verifies plan maintains functionality via tests/examples\",\n      \"Total plan <2000 words, actionable in 1-2 hours\"\n    ],\n    \"assumptions\": [\n      \"Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None\",\n      \"Appends notes to file atomically\",\n      \"No async or multiprocessing needs\"\n    ],\n    \"openQuestions\": [\n      \"Source code?\",\n      \"Refactor priorities (e.g., speed vs. safety)?\",\n      \"Target Python version?\"\n    ]\n  }\n}",
+                        "type": "text"
+                      }
+                    ],
+                    "structuredContent": {
+                      "acceptanceCriteria": [
+                        "Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)",
+                        "Outlines sequential refactoring steps with rationale, pseudocode, or snippets",
+                        "Includes validation strategy (e.g., tests, manual checks)",
+                        "Estimates effort (low/medium/high) and potential risks",
+                        "Plan is executable by a developer without further clarification"
+                      ],
+                      "assumptions": [
+                        "The script `add_release_notes.py` exists and defines `add_release_notes_to_file`",
+                        "The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)",
+                        "Python 3.8+ environment with standard libraries (no external deps unless specified)",
+                        "No unit tests exist initially, so plan includes adding them"
+                      ],
+                      "clarifyingQuestions": [
+                        "Can you provide the full source code of `add_release_notes.py`?",
+                        "What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?",
+                        "Does the function depend on external libraries, config files, or environment variables?",
+                        "What file format does it target (e.g., Markdown, JSON)?",
+                        "Are there existing tests or examples of input/output?"
+                      ],
+                      "constraints": [
+                        "Preserve the function's external API (signature, inputs, outputs, and side effects)",
+                        "Ensure backward compatibility",
+                        "Adhere to PEP 8 style guidelines",
+                        "Minimize changes to unrelated parts of the script"
+                      ],
+                      "objective": "Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.",
+                      "originalRequest": "add_release_notes.py make a plan to refactor `add_release_notes_to_file`",
+                      "promptBrief": {
+                        "acceptanceChecks": [
+                          "Plan covers code smells, modularity, robustness",
+                          "Includes diff-like snippets or pseudocode",
+                          "Verifies plan maintains functionality via tests/examples",
+                          "Total plan <2000 words, actionable in 1-2 hours"
+                        ],
+                        "assumptions": [
+                          "Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None",
+                          "Appends notes to file atomically",
+                          "No async or multiprocessing needs"
+                        ],
+                        "hardConstraints": [
+                          "No changes to function signature or core behavior",
+                          "No new external dependencies",
+                          "Refactor in-place without breaking existing calls"
+                        ],
+                        "objective": "Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.",
+                        "openQuestions": [
+                          "Source code?",
+                          "Refactor priorities (e.g., speed vs. safety)?",
+                          "Target Python version?"
+                        ]
+                      },
+                      "refinedRequest": "Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples."
+                    }
+                  }
+                ],
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "nestingDepth": 0,
+          "sampleSize": 0,
+          "samples": [
+            [
+              {
+                "error": {},
+                "meta": {
+                  "exec_time": 13.634
+                },
+                "name": "refine_request",
+                "params": {
+                  "request": "add_release_notes.py make a plan to refactor `add_release_notes_to_file`"
+                },
+                "response": {
+                  "content": [
+                    {
+                      "text": "{\n  \"originalRequest\": \"add_release_notes.py make a plan to refactor `add_release_notes_to_file`\",\n  \"objective\": \"Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.\",\n  \"refinedRequest\": \"Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples.\",\n  \"constraints\": [\n    \"Preserve the function's external API (signature, inputs, outputs, and side effects)\",\n    \"Ensure backward compatibility\",\n    \"Adhere to PEP 8 style guidelines\",\n    \"Minimize changes to unrelated parts of the script\"\n  ],\n  \"assumptions\": [\n    \"The script `add_release_notes.py` exists and defines `add_release_notes_to_file`\",\n    \"The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)\",\n    \"Python 3.8+ environment with standard libraries (no external deps unless specified)\",\n    \"No unit tests exist initially, so plan includes adding them\"\n  ],\n  \"acceptanceCriteria\": [\n    \"Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)\",\n    \"Outlines sequential refactoring steps with rationale, pseudocode, or snippets\",\n    \"Includes validation strategy (e.g., tests, manual checks)\",\n    \"Estimates effort (low/medium/high) and potential risks\",\n    \"Plan is executable by a developer without further clarification\"\n  ],\n  \"clarifyingQuestions\": [\n    \"Can you provide the full source code of `add_release_notes.py`?\",\n    \"What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?\",\n    \"Does the function depend on external libraries, config files, or environment variables?\",\n    \"What file format does it target (e.g., Markdown, JSON)?\",\n    \"Are there existing tests or examples of input/output?\"\n  ],\n  \"promptBrief\": {\n    \"objective\": \"Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.\",\n    \"hardConstraints\": [\n      \"No changes to function signature or core behavior\",\n      \"No new external dependencies\",\n      \"Refactor in-place without breaking existing calls\"\n    ],\n    \"acceptanceChecks\": [\n      \"Plan covers code smells, modularity, robustness\",\n      \"Includes diff-like snippets or pseudocode\",\n      \"Verifies plan maintains functionality via tests/examples\",\n      \"Total plan <2000 words, actionable in 1-2 hours\"\n    ],\n    \"assumptions\": [\n      \"Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None\",\n      \"Appends notes to file atomically\",\n      \"No async or multiprocessing needs\"\n    ],\n    \"openQuestions\": [\n      \"Source code?\",\n      \"Refactor priorities (e.g., speed vs. safety)?\",\n      \"Target Python version?\"\n    ]\n  }\n}",
+                      "type": "text"
+                    }
+                  ],
+                  "structuredContent": {
+                    "acceptanceCriteria": [
+                      "Plan identifies at least 3-5 specific issues in the current implementation (e.g., duplication, poor error handling)",
+                      "Outlines sequential refactoring steps with rationale, pseudocode, or snippets",
+                      "Includes validation strategy (e.g., tests, manual checks)",
+                      "Estimates effort (low/medium/high) and potential risks",
+                      "Plan is executable by a developer without further clarification"
+                    ],
+                    "assumptions": [
+                      "The script `add_release_notes.py` exists and defines `add_release_notes_to_file`",
+                      "The function reads release notes data and appends/modifies a target file (e.g., CHANGELOG.md)",
+                      "Python 3.8+ environment with standard libraries (no external deps unless specified)",
+                      "No unit tests exist initially, so plan includes adding them"
+                    ],
+                    "clarifyingQuestions": [
+                      "Can you provide the full source code of `add_release_notes.py`?",
+                      "What are the specific goals or pain points for refactoring (e.g., performance, readability, handling large files)?",
+                      "Does the function depend on external libraries, config files, or environment variables?",
+                      "What file format does it target (e.g., Markdown, JSON)?",
+                      "Are there existing tests or examples of input/output?"
+                    ],
+                    "constraints": [
+                      "Preserve the function's external API (signature, inputs, outputs, and side effects)",
+                      "Ensure backward compatibility",
+                      "Adhere to PEP 8 style guidelines",
+                      "Minimize changes to unrelated parts of the script"
+                    ],
+                    "objective": "Develop a detailed, step-by-step refactoring plan for the `add_release_notes_to_file` function in `add_release_notes.py`, focusing on improving code quality, modularity, error handling, and adherence to Python best practices.",
+                    "originalRequest": "add_release_notes.py make a plan to refactor `add_release_notes_to_file`",
+                    "promptBrief": {
+                      "acceptanceChecks": [
+                        "Plan covers code smells, modularity, robustness",
+                        "Includes diff-like snippets or pseudocode",
+                        "Verifies plan maintains functionality via tests/examples",
+                        "Total plan <2000 words, actionable in 1-2 hours"
+                      ],
+                      "assumptions": [
+                        "Function signature: def add_release_notes_to_file(file_path: str, notes: str) -> None",
+                        "Appends notes to file atomically",
+                        "No async or multiprocessing needs"
+                      ],
+                      "hardConstraints": [
+                        "No changes to function signature or core behavior",
+                        "No new external dependencies",
+                        "Refactor in-place without breaking existing calls"
+                      ],
+                      "objective": "Produce a structured refactoring plan for `add_release_notes_to_file`, including issue analysis, step-by-step changes, and verification steps.",
+                      "openQuestions": [
+                        "Source code?",
+                        "Refactor priorities (e.g., speed vs. safety)?",
+                        "Target Python version?"
+                      ]
+                    },
+                    "refinedRequest": "Create a comprehensive refactoring plan for `add_release_notes_to_file` in `add_release_notes.py`: analyze current code for issues, propose modular improvements (e.g., separate concerns into helper functions), enhance error handling/logging, add type hints/tests, and provide implementation steps with before/after examples."
+                  }
+                }
+              }
+            ]
+          ],
+          "type": "array"
+        },
+        "user_prompt": {
+          "#docs": 1,
+          "%docs": 100,
+          "nestingDepth": 0,
+          "samples": [
+            "add_release_notes.py make a pl..."
+          ],
+          "type": "string"
+        },
+        "~meta": {
+          "#docs": 1,
+          "%docs": 100,
+          "nestingDepth": 0,
+          "properties": {
+            "id": {
+              "#docs": 1,
+              "%docs": 100,
+              "nestingDepth": 1,
+              "samples": [
+                "add-release-notes-refactor"
+              ],
+              "type": "string"
+            }
+          },
+          "samples": [
+            {
+              "id": "add-release-notes-refactor"
+            }
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  ]
+]

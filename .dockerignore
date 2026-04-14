@@ -1,0 +1,14 @@
+.git
+__pycache__
+venv/
+env/
+.venv/
+.env
+*.pyc
+.DS_Store
+.gitignore
+.dockerignore
+LICENSE
+README.md
+yes
+yes.pub
