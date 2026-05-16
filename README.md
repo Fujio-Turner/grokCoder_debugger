@@ -214,4 +214,16 @@ You can connect to multiple Couchbase clusters. The default cluster is configure
 
 ## License
 
-MIT License
+Business Source License 1.1 (BSL-1.1). See [LICENSE](LICENSE).
+
+- **Non-production use** (evaluation, development, testing, personal/internal
+  tinkering) is permitted at no cost.
+- **Production use** is permitted under the Additional Use Grant for
+  non-commercial purposes or internal use within your organization. Offering
+  the Licensed Work (or a substantial portion of its functionality) as a
+  hosted/managed service to third parties is **not** permitted without a
+  commercial license.
+- **Change Date:** 2030-05-16. On that date the Licensed Work automatically
+  converts to the **Apache License, Version 2.0**.
+
+For commercial licensing inquiries, please contact the Licensor.
