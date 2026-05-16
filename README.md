@@ -67,6 +67,16 @@ CB_COLLECTION=report
 | `CB_BUCKET` | No | `grokCoder` | Couchbase bucket name |
 | `CB_SCOPE` | No | `continue` | Couchbase scope name |
 | `CB_COLLECTION` | No | `report` | Couchbase collection name |
+| `GROK_API_KEY` | No | — | xAI API key for the auto-triage pipeline |
+| `GROK_MODEL` | No | `grok-4-latest` | Grok model name (e.g. `grok-4.2.0`, `grok-4.3.0`) |
+| `GROK_API_URL` | No | `https://api.x.ai/v1/chat/completions` | xAI chat-completions endpoint |
+| `GROK_TIMEOUT_SEC` | No | `360` | HTTP timeout for Grok calls (premium models are slow) |
+| `GITHUB_TOKEN` | No | — | Fine-grained PAT with `Issues: Read & Write` on the target repo |
+| `GITHUB_REPO` | No | `Fujio-Turner/continue-vscode-todos-tool` | `owner/repo` to file triage issues into |
+| `DAILY_ISSUE_QUOTA` | No | `10` | Maximum GitHub issues the pipeline may create per UTC day |
+| `POLL_INTERVAL_SEC` | No | `60` | Background poller cadence in seconds |
+| `POLLER_ENABLED` | No | `true` | Start the background poller on boot |
+| `STATE_FILE` | No | `/data/state.json` | Persisted dedup + quota state (Docker volume) |
 
 ### 3. Start the app
 
@@ -207,6 +217,153 @@ grokcoder_debugger/
 | `config.json` | May contain cluster passwords added via UI |
 | `venv/` | Local Python virtual environment |
 | `__pycache__/` | Python bytecode cache |
+
+## Auto-Triage Pipeline
+
+When `GROK_API_KEY` **and** `GITHUB_TOKEN` are both set, the dashboard runs a
+background **auto-triage pipeline** that watches Couchbase for new error-bearing
+sessions, asks **Grok** for a root-cause analysis and suggested fix, and files
+a deduped GitHub Issue in `GITHUB_REPO`. Manual one-off triage from the UI
+("Triage now" / "🐛 Triage → GitHub" tab) goes through the same pipeline.
+
+### Env vars
+
+| Var | Default | Purpose |
+|---|---|---|
+| `GROK_API_KEY` | — | xAI API key |
+| `GROK_MODEL` | `grok-4-latest` | premium models: `grok-4.2.0`, `grok-4.3.0` |
+| `GROK_API_URL` | `https://api.x.ai/v1/chat/completions` | xAI endpoint |
+| `GROK_TIMEOUT_SEC` | `360` | HTTP timeout (premium models are slow) |
+| `GITHUB_TOKEN` | — | Fine-grained PAT with `Issues: Read & Write` |
+| `GITHUB_REPO` | `Fujio-Turner/continue-vscode-todos-tool` | target repo |
+| `DAILY_ISSUE_QUOTA` | `10` | max issues created per UTC day |
+| `POLL_INTERVAL_SEC` | `60` | background poller cadence |
+| `POLLER_ENABLED` | `true` | auto-start the poller on boot |
+| `STATE_FILE` | `/data/state.json` | persisted dedup + quota state |
+
+### Creating the `GITHUB_TOKEN`
+
+The pipeline authenticates to the GitHub REST API as a Bearer token, so it
+needs a personal access token (PAT) with **write access to Issues** on the
+target repo. A **fine-grained PAT** is strongly preferred (least privilege):
+
+1. Go to GitHub → **Settings → Developer settings → Personal access tokens
+   → Fine-grained tokens** → **Generate new token**.
+2. **Resource owner:** the owner of `GITHUB_REPO` (e.g. `Fujio-Turner`).
+3. **Repository access:** **Only select repositories** → pick the target
+   repo (e.g. `continue-vscode-todos-tool`).
+4. **Repository permissions:** set **Issues** → **Read and write**.
+   (Leave everything else as "No access".)
+5. Click **Generate token** and copy the `github_pat_…` value — it is only
+   shown once.
+6. Add it to your `.env`:
+
+   ```env
+   GITHUB_TOKEN=github_pat_xxxxxxxxxxxxxxxxxxxxxxxx
+   GITHUB_REPO=Fujio-Turner/continue-vscode-todos-tool
+   ```
+
+7. Restart the container (`docker compose up -d --build` or
+   `docker compose restart`).
+8. In the dashboard, click **⚙ Settings → 🔍 Verify token** to confirm the
+   token can read the repo and has Issues-write permission. Click
+   **🧪 Create test issue** to file a real `grokcoder-test`-labeled issue
+   you can close (it does **not** consume the daily quota). The same flow
+   is exposed at `POST /api/triage/test-ticket` with `{"mode":"verify"}`
+   or `{"mode":"create"}`.
+
+A **classic PAT** with the `repo` scope also works but grants far more
+access than the pipeline needs; use fine-grained tokens whenever possible.
+
+> If `GITHUB_TOKEN` is empty:
+> - `POST /api/issues` returns **503** with `{"error":"GITHUB_TOKEN is not set"}`.
+> - The background poller refuses to start (logs `[poller] not started: GITHUB_TOKEN is empty`).
+> - The manual "Triage now" button can still call Grok but cannot file the issue.
+
+### Dedup semantics
+
+Two layers prevent the same bug from getting filed twice:
+
+1. **`processed_docs[docId]`** — exact-match short-circuit. Once a session
+   document has been triaged, it is skipped (configurable per-session).
+2. **`signatures[<sig>]`** — semantic short-circuit. The signature is a
+   SHA-1 over `(tool_name, normalized error message, normalized first stack
+   frame, normalized prompt topic)`. Two retries of "the same bug from a
+   fresh chat" produce the same signature, comment on the existing GitHub
+   issue, and **do not** consume Grok tokens or burn quota.
+
+The GitHub issue body embeds **both** markers so state can be safely
+re-hydrated from GitHub after a `state.json` wipe:
+
+```
+<!-- grokcoder-debugger-id:<docId> -->
+<!-- grokcoder-signature:<sig> -->
+```
+
+### Daily quota & deferred queue
+
+- Counters reset at **UTC midnight** (`quota_used`, `stats.today`).
+- When the quota is reached, new unique errors are pushed onto
+  `state.deferred[]` with `reason="quota"`.
+- On the next poller tick (after the day rolls over), the deferred queue
+  is **drained oldest-first** before any new error docs are scanned.
+
+### Cost guard
+
+- Each TOON-encoded payload is hard-capped at **32 KB**. If it exceeds the
+  cap, `chatTail` is dropped first; then `toolErrors[*].error` strings are
+  aggressively truncated. The reduction is logged as
+  `[toon] cost-guard: …`.
+
+### Inspecting `state.json`
+
+The state file lives at `STATE_FILE` (default `/data/state.json` inside the
+container, `./data/state.json` on the host via the bind mount).
+
+```bash
+# Pretty-print the state file:
+python scripts/dump_state.py
+python scripts/dump_state.py ./data/state.json
+```
+
+It shows quota usage, controls, top signatures by occurrence count, the
+deferred queue, the most recent triage attempts, and the `lastTicket`.
+
+For live introspection, use the HTTP endpoints:
+
+| Endpoint | What it shows |
+|---|---|
+| `GET /api/triage/health` | Grok / GitHub / quota / poller config + last error |
+| `GET /api/triage/stats` | today / last 24h / lifetime counters + `lastTicket` |
+| `GET /api/triage/attempts?limit=50&outcome=…` | per-attempt feed (telemetry) |
+| `GET /api/triage/last-ticket` | most recent created ticket |
+| `GET /api/triage/controls` (+ `POST`) | kill switch, poller, model override |
+| `POST /api/triage/kill` / `POST /api/triage/resume` | global toggle |
+| `GET /api/poller/state` | thread alive, last run, quota |
+| `POST /api/poller/{pause,resume,run-now}` | poller control |
+| `GET /api/issues/status?docIds=a,b,c` | per-doc ticket status |
+| `GET /api/issues/recent` | most recent ticket actions |
+
+### Structured logs
+
+Every pipeline step emits one line of the form:
+
+```
+[triage] doc=<id> sig=<8chars> action=<outcome> url=<url|->
+         grokMs=<n> tokens=<n> quota=<used>/<limit>
+         trigger=<manual|poller|poller-drain> reason=<…|->
+```
+
+Outcomes: `created`, `commented`, `deferred`, `error`,
+`skipped-doc-processed`, `skipped-known-signature`,
+`skipped-issue-creation-disabled`, `skipped-kill-switch`.
+
+### Docker persistence
+
+The container mounts `./data` → `/data`, so `state.json` (and therefore the
+quota counter, signatures, and deferred queue) **survives `docker compose
+down`**. The image declares `/data` as a volume and `chmod 0777`s it at
+build time.
 
 ## Adding More Clusters
 

@@ -8,7 +8,29 @@
 <body>
     <h1>grokCoder Debugger <button class="refresh-btn" onclick="loadData()">🔄 Refresh</button></h1>
     <p class="subtitle">Tool execution reports from grokCoder AI sessions</p>
-    
+
+    <!-- Session 5: Triage control bar -->
+    <div class="triage-bar" id="triageBar">
+        <span id="pollerBadge" class="triage-badge" title="Background poller status">🤖 Poller: …</span>
+        <span id="quotaBadge"  class="triage-badge" title="Today's GitHub-issue quota">📊 Today: …/…</span>
+        <span id="lastTicketBadge" class="triage-badge" title="">✅ Last: —</span>
+        <button onclick="pollerPause()"  class="triage-btn">⏸ Pause</button>
+        <button onclick="pollerResume()" class="triage-btn">▶ Resume</button>
+        <button onclick="pollerRunNow()" class="triage-btn">⟳ Run now</button>
+        <button onclick="killSwitch()"   class="triage-btn danger" id="killSwitchBtn">🛑 Kill switch</button>
+        <button onclick="openControlsPanel()" class="triage-btn">⚙ Settings</button>
+        <span id="triageToast" class="triage-toast"></span>
+    </div>
+
+    <!-- Session 5: Triage stats panel (collapsible) -->
+    <details id="statsPanel" class="collapse-panel">
+        <summary>📊 Triage stats <span id="statsSummaryLine" class="muted"></span></summary>
+        <div class="stats-row" id="statsCards">
+            <div class="empty">Loading…</div>
+        </div>
+        <div id="lastTicketHero" class="last-ticket-hero"></div>
+    </details>
+
     <div class="filters">
         <label>Time range:</label>
         <select id="timeRange" onchange="loadData()">
@@ -49,14 +71,40 @@
                 <th>Exec Time</th>
                 <th>Doc ID</th>
                 <th>Description</th>
+                <th>Ticket</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody id="tableBody">
-            <tr><td colspan="5" class="empty">Loading...</td></tr>
+            <tr><td colspan="6" class="empty">Loading...</td></tr>
         </tbody>
     </table>
-    
+
+    <!-- Session 5: Recent triage attempts feed (collapsible) -->
+    <details id="attemptsPanel" class="collapse-panel">
+        <summary>🧾 Recent triage attempts <span id="attemptsSummaryLine" class="muted"></span></summary>
+        <div class="attempts-filter-bar" id="attemptsFilterBar">
+            <button class="filter-pill active" data-outcome="any"       onclick="setAttemptsFilter('any')">All</button>
+            <button class="filter-pill" data-outcome="created"   onclick="setAttemptsFilter('created')">🟢 Created</button>
+            <button class="filter-pill" data-outcome="commented" onclick="setAttemptsFilter('commented')">🔁 Commented</button>
+            <button class="filter-pill" data-outcome="skipped"   onclick="setAttemptsFilter('skipped')">⚪ Skipped</button>
+            <button class="filter-pill" data-outcome="deferred"  onclick="setAttemptsFilter('deferred')">⏳ Deferred</button>
+            <button class="filter-pill" data-outcome="errors"    onclick="setAttemptsFilter('errors')">❌ Errors</button>
+            <button class="filter-pill ghost" onclick="loadAttempts()">⟳ Refresh</button>
+        </div>
+        <div id="attemptsList" class="attempts-list">
+            <div class="empty">Loading…</div>
+        </div>
+    </details>
+
+    <!-- Session 5: Deferred queue panel (collapsible) -->
+    <details id="deferredPanel" class="collapse-panel">
+        <summary>⏳ Deferred queue <span id="deferredSummaryLine" class="muted"></span></summary>
+        <div id="deferredList" class="attempts-list">
+            <div class="empty">Loading…</div>
+        </div>
+    </details>
+
     <!-- JSON Viewer Modal -->
     <div class="modal-overlay" id="jsonModal">
         <div class="modal">
@@ -67,10 +115,12 @@
             <div class="modal-tabs">
                 <div class="modal-tab" data-tab="full" onclick="switchTab('full')">Full JSON</div>
                 <div class="modal-tab ai-tab" data-tab="ai" onclick="switchTab('ai')">🤖 AI Inputs</div>
+                <div class="modal-tab triage-tab" data-tab="triage" onclick="switchTab('triage')">🐛 Triage → GitHub</div>
             </div>
             <div class="modal-body">
                 <div id="tabFull" class="json-viewer"></div>
                 <div id="tabAi" class="ai-inputs" style="display:none"></div>
+                <div id="tabTriage" class="ai-inputs" style="display:none"></div>
             </div>
         </div>
     <div id="clusterManager" class="modal-overlay">
@@ -101,6 +151,58 @@
       </div>
     </div>
     </div>
+
+    <!-- Session 5: Triage controls modal -->
+    <div id="controlsModal" class="modal-overlay">
+        <div class="modal" style="max-width:560px;">
+            <div class="modal-header">
+                <h2>⚙ Triage Controls</h2>
+                <button class="modal-close" onclick="closeControlsPanel()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div class="controls-row">
+                    <label><input type="checkbox" id="ctrl_killSwitch" onchange="saveControl('killSwitch', this.checked)"> 🛑 Kill switch (no Grok, no GitHub)</label>
+                </div>
+                <div class="controls-row">
+                    <label><input type="checkbox" id="ctrl_pollerEnabled" onchange="saveControl('pollerEnabled', this.checked)"> 🤖 Background poller enabled</label>
+                </div>
+                <div class="controls-row">
+                    <label><input type="checkbox" id="ctrl_issueCreationEnabled" onchange="saveControl('issueCreationEnabled', this.checked)"> 🎫 Issue creation enabled</label>
+                </div>
+                <div class="controls-row">
+                    <label><input type="checkbox" id="ctrl_skipProcessedDocs" onchange="saveControl('skipProcessedDocs', this.checked)"> 🚫 Skip already-handled docIds</label>
+                </div>
+                <div class="controls-row">
+                    <label><input type="checkbox" id="ctrl_skipKnownSignatures" onchange="saveControl('skipKnownSignatures', this.checked)"> 🔁 Skip known signatures (don't recreate dups)</label>
+                </div>
+                <div class="controls-row">
+                    <label>Model override:
+                        <select id="ctrl_modelOverride" onchange="saveControl('modelOverride', this.value || null)">
+                            <option value="">(use env GROK_MODEL)</option>
+                            <option value="grok-4-latest">grok-4-latest</option>
+                            <option value="grok-4.2.0">grok-4.2.0</option>
+                            <option value="grok-4.3.0">grok-4.3.0</option>
+                        </select>
+                    </label>
+                </div>
+                <hr style="margin:16px 0; border:none; border-top:1px solid #333;">
+                <div class="controls-row">
+                    <strong>🔌 GitHub connection test</strong>
+                    <div class="muted" style="font-size:0.85em; margin:4px 0 8px 0;">
+                        Verify <code>GITHUB_TOKEN</code> + <code>GITHUB_REPO</code>
+                        without filing anything, or file a labeled "test ticket"
+                        you can close. The test ticket does NOT consume quota.
+                    </div>
+                    <button class="triage-btn" onclick="testGithubConnection('verify')">🔍 Verify token</button>
+                    <button class="triage-btn" onclick="testGithubConnection('create')">🧪 Create test issue</button>
+                    <div id="testTicketResult" class="muted" style="margin-top:10px; font-size:0.85em; white-space:pre-wrap;"></div>
+                </div>
+                <div class="muted" id="controlsMeta" style="margin-top:14px; font-size:0.85em;"></div>
+                <span id="controlsToast" class="triage-toast"></span>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/script.js"></script>
 </body>
 </html>

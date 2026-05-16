@@ -154,3 +154,116 @@
 .flow-stat.error .flow-stat-value { color: #f14c4c; }
 .flow-stat.bug .flow-stat-value { color: #ce9178; }
 .flow-stat.failure .flow-stat-value { color: #cca700; }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Session 5: Triage UI                                        */
+/* ─────────────────────────────────────────────────────────── */
+
+.triage-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+              background:#252526; padding:10px 15px; border-radius:8px;
+              margin-bottom:14px; border:1px solid #333; }
+.triage-bar.killed { background:#3a1a1a; border-color:#f14c4c; }
+.triage-badge { background:#1a1a1a; border:1px solid #333; padding:5px 10px;
+                border-radius:6px; font-size:0.88em; color:#ccc; }
+.triage-badge.ok      { border-color:#2d6a2d; color:#4edc4e; }
+.triage-badge.warn    { border-color:#6a5d2d; color:#cca700; }
+.triage-badge.fail    { border-color:#6a2d2d; color:#f14c4c; }
+.triage-badge a       { color:inherit; text-decoration:underline; }
+.triage-badge.clickable { cursor:pointer; }
+.triage-btn { background:#0e639c; color:#fff; border:none; padding:6px 12px;
+              border-radius:4px; cursor:pointer; font-size:0.88em; }
+.triage-btn:hover { background:#1177bb; }
+.triage-btn.danger { background:#6a2d2d; }
+.triage-btn.danger:hover { background:#8a3838; }
+.triage-toast { color:#4edc4e; font-size:0.85em; margin-left:8px; opacity:0;
+                transition:opacity 0.2s; }
+.triage-toast.show { opacity:1; }
+.triage-toast.error { color:#f14c4c; }
+
+.muted { color:#888; font-weight:normal; font-size:0.85em; }
+
+.collapse-panel { background:#252526; border:1px solid #333; border-radius:8px;
+                  margin-bottom:14px; padding:0; overflow:hidden; }
+.collapse-panel > summary { padding:10px 16px; cursor:pointer; color:#4ec9b0;
+                            font-weight:600; user-select:none; }
+.collapse-panel[open] > summary { border-bottom:1px solid #333; }
+.collapse-panel > *:not(summary) { padding:12px 16px; }
+
+/* Severity pills */
+.sev { display:inline-block; padding:1px 7px; border-radius:10px; font-size:0.75em;
+       font-weight:600; text-transform:uppercase; margin-left:4px; }
+.sev-low      { background:#1a3a1a; color:#4edc4e; }
+.sev-medium   { background:#3a3a1a; color:#cca700; }
+.sev-high     { background:#4a2a1a; color:#cc6633; }
+.sev-critical { background:#4a1a1a; color:#f14c4c; }
+
+/* Ticket cell */
+.ticket-cell { white-space:nowrap; }
+.ticket-cell a { font-weight:600; color:#569cd6; text-decoration:none; }
+.ticket-cell a:hover { text-decoration:underline; }
+.ticket-cell small { color:#888; margin-left:4px; font-size:0.78em; }
+.ticket-deferred { color:#caa42b; }
+.ticket-none { color:#888; }
+.ticket-btn  { background:#333; color:#4ec9b0; border:1px solid #4ec9b0;
+               padding:3px 8px; border-radius:4px; cursor:pointer;
+               font-size:0.78em; margin-left:4px; }
+.ticket-btn:hover { background:#4ec9b0; color:#000; }
+
+/* Stats panel */
+.stats-row { display:flex; gap:14px; flex-wrap:wrap; }
+.stat-card.triage { background:#1a1a1a; border:1px solid #333; border-radius:8px;
+                    padding:12px 14px; min-width:200px; flex:1; cursor:default; }
+.stat-card.triage:hover { transform:none; }
+.stat-card.triage h5 { margin:0 0 8px 0; color:#4ec9b0; font-size:0.95em; }
+.stat-card.triage .num { font-size:1.3em; font-weight:600; color:#d4d4d4; }
+.stat-card.triage table { background:transparent; }
+.stat-card.triage td { border-top:none; padding:2px 8px 2px 0; font-size:0.88em; }
+.last-ticket-hero { margin-top:12px; padding:14px; background:#1a2a1a;
+                    border:1px solid #2d6a2d; border-radius:8px;
+                    font-size:0.92em; color:#d4d4d4; }
+.last-ticket-hero.empty-state { background:#1a1a1a; border-color:#333; color:#888; }
+
+/* Attempts feed */
+.attempts-filter-bar { display:flex; gap:6px; flex-wrap:wrap;
+                       margin-bottom:12px; padding:0; }
+.filter-pill { background:#333; color:#ccc; border:1px solid #555;
+               padding:4px 10px; border-radius:14px; cursor:pointer; font-size:0.82em; }
+.filter-pill:hover { background:#444; }
+.filter-pill.active { background:#4ec9b0; color:#000; border-color:#4ec9b0; }
+.filter-pill.ghost  { border-style:dashed; }
+.attempts-list { display:flex; flex-direction:column; gap:4px; max-height:420px;
+                 overflow:auto; }
+.attempt-row { display:flex; align-items:center; gap:10px; padding:6px 10px;
+               background:#1a1a1a; border-radius:4px; font-size:0.85em;
+               border-left:3px solid #555; }
+.attempt-row .ar-out  { width:90px; font-weight:600; }
+.attempt-row .ar-num  { width:60px; }
+.attempt-row .ar-doc  { color:#888; max-width:180px; overflow:hidden;
+                        text-overflow:ellipsis; white-space:nowrap; }
+.attempt-row .ar-reason { flex:1; color:#ccc; overflow:hidden;
+                          text-overflow:ellipsis; white-space:nowrap; }
+.attempt-row .ar-meta { color:#888; font-size:0.92em; }
+.attempt-row.outcome-created   { border-left-color:#2ea043; }
+.attempt-row.outcome-commented { border-left-color:#569cd6; }
+.attempt-row.outcome-skipped   { border-left-color:#777; }
+.attempt-row.outcome-deferred  { border-left-color:#caa42b; }
+.attempt-row.outcome-error     { border-left-color:#f14c4c; }
+
+/* Controls modal */
+.controls-row { margin-bottom:10px; }
+.controls-row label { display:flex; gap:8px; align-items:center; cursor:pointer; }
+.controls-row select { background:#3c3c3c; border:1px solid #555; color:#fff;
+                       padding:5px 8px; border-radius:4px; }
+.modal-tab.triage-tab { color:#ce9178; }
+.modal-tab.triage-tab.active { border-bottom-color:#ce9178; }
+
+/* Triage tab inside report modal */
+.triage-sticky-header { background:#1a2a1a; border:1px solid #2d6a2d;
+                        border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+.triage-sticky-header.deferred { background:#3a2e1a; border-color:#caa42b; }
+.triage-sticky-header.none     { background:#1a1a1a; border-color:#333;
+                                 color:#888; }
+.triage-tab-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.triage-result-block { background:#1a1a1a; border:1px solid #333; border-radius:8px;
+                       padding:14px; margin-top:14px; }
+.triage-result-block pre { font-size:12px; color:#d4d4d4; }

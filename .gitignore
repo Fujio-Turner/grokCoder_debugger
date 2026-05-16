@@ -37,3 +37,6 @@ config.json
 # SSH keys
 yes
 yes.pub
+
+# Local sample / fixture data (not shipped)
+sample/

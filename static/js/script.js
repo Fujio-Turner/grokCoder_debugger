@@ -95,7 +95,10 @@ async function loadData() {
     allReports = data.reports || [];
     rawData = data;
     updateCharts(data);
+    await loadIssueStatuses();
     filterTable();
+    // Refresh triage observability panels in parallel.
+    loadStats(); loadAttempts(); loadDeferred(); refreshTriageBar();
 }
 
 let searchTimer = null;
@@ -116,26 +119,26 @@ function filterTable() {
 
 async function runFtsSearch(query) {
     const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">🔍 Searching...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">🔍 Searching...</td></tr>';
 
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
         const data = await resp.json();
 
         if (data.error) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty">Search error: ${escapeHtml(data.error)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">Search error: ${escapeHtml(data.error)}</td></tr>`;
             return;
         }
 
         if (!data.hits || data.hits.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty">No results for "${escapeHtml(query)}"</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">No results for "${escapeHtml(query)}"</td></tr>`;
             return;
         }
 
         const rows = data.hits.map(hit => renderSearchHitRow(hit)).join('');
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:8px;color:#888;">🔍 ${data.total} results (${(data.took / 1000000).toFixed(1)}ms)</td></tr>` + rows;
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:8px;color:#888;">🔍 ${data.total} results (${(data.took / 1000000).toFixed(1)}ms)</td></tr>` + rows;
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty">Search failed: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">Search failed: ${e.message}</td></tr>`;
     }
 }
 
@@ -161,6 +164,7 @@ function renderSearchHitRow(hit) {
             <td class="timestamp">${score}</td>
             <td><a class="session-link" onclick="viewReport('${escapeAttr(docId)}')">${docId.slice(0, 20)}...</a></td>
             <td class="description">${desc || escapeHtml(docId)}</td>
+            ${renderTicketCell((window.issueStatusMap || {})[docId], docId)}
             <td>
                 <button class="view-btn" onclick="viewReport('${escapeAttr(docId)}')">View</button>
             </td>
@@ -171,7 +175,7 @@ function renderSearchHitRow(hit) {
 function renderTable(errors) {
     const tbody = document.getElementById('tableBody');
     if (errors.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty">No errors found 🎉</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No errors found 🎉</td></tr>';
         return;
     }
     tbody.innerHTML = errors.map(e => renderErrorRow(e)).join('');
@@ -187,11 +191,63 @@ function renderErrorRow(e) {
             <td class="timestamp">${execTime}</td>
             <td><a class="session-link" onclick="viewReport('${escapeAttr(docId)}')">${docId.slice(0, 12)}...</a></td>
             <td class="description">${escapeHtml(e.description)}</td>
+            ${renderTicketCell((window.issueStatusMap || {})[docId], docId)}
             <td>
                 <button class="view-btn" onclick="viewReport('${escapeAttr(docId)}')">View</button>
             </td>
         </tr>
     `;
+}
+
+// ── Session 5: Ticket cell renderer ─────────────────────────
+function renderTicketCell(s, docId) {
+    const triageBtn = `<button class="ticket-btn" onclick="event.stopPropagation(); triageRow('${escapeAttr(docId)}')">Triage now</button>`;
+    if (!s) return `<td class="ticket-none">⚪ — ${triageBtn}</td>`;
+    if (s.deferred) {
+        return `<td class="ticket-deferred" title="${escapeAttr(s.reason || '')}">⏳ Deferred${triageBtn}</td>`;
+    }
+    if (s.hasIssue) {
+        const icon = s.action === 'commented' ? '🔁' : '🟢';
+        const sev  = s.severity ? `<span class="sev sev-${escapeAttr(s.severity)}">${escapeHtml(s.severity)}</span>` : '';
+        const seen = (s.count && s.count > 1) ? `<small>seen ×${s.count}</small>` : '';
+        const when = s.lastSeenAt ? `<small title="${escapeAttr(s.lastSeenAt)}">${timeAgo(s.lastSeenAt)}</small>` : '';
+        const num  = s.issueNumber ? `#${s.issueNumber}` : '?';
+        const href = s.issueUrl || '#';
+        return `<td class="ticket-cell">${icon} <a href="${escapeAttr(href)}" target="_blank" rel="noopener">${num}</a> ${sev}${seen}${when}</td>`;
+    }
+    return `<td class="ticket-none">⚪ — ${triageBtn}</td>`;
+}
+
+// ── Session 5: timeAgo helper (5m, 3h, 2d, …) ───────────────
+function timeAgo(iso) {
+    if (!iso) return '';
+    const then = new Date(iso).getTime();
+    if (isNaN(then)) return '';
+    const sec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+    if (sec < 5)   return 'just now';
+    if (sec < 60)  return sec + 's ago';
+    if (sec < 3600)        return Math.floor(sec / 60)   + 'm ago';
+    if (sec < 86400)       return Math.floor(sec / 3600) + 'h ago';
+    if (sec < 86400 * 14)  return Math.floor(sec / 86400) + 'd ago';
+    return Math.floor(sec / 86400) + 'd ago';
+}
+
+// ── Session 5: batch-fetch issue status for visible docIds ──
+async function loadIssueStatuses() {
+    if (!allErrors || allErrors.length === 0) {
+        window.issueStatusMap = {};
+        return;
+    }
+    const docIds = [...new Set(allErrors.map(e => e.sessionId).filter(Boolean))];
+    if (docIds.length === 0) { window.issueStatusMap = {}; return; }
+    try {
+        const resp = await fetch(`/api/issues/status?docIds=${encodeURIComponent(docIds.join(','))}`);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        window.issueStatusMap = await resp.json();
+    } catch (e) {
+        console.warn('loadIssueStatuses failed:', e);
+        window.issueStatusMap = {};
+    }
 }
 
 function escapeAttr(str) {
@@ -241,6 +297,9 @@ async function viewReport(docId) {
 
     // Render AI Inputs tab
     renderAiInputs(error, report, session);
+
+    // Render Triage tab (sticky-header for existing tickets + Triage button)
+    renderTriageTab(docId, error, report, session);
 
     switchTab('ai');
 }
@@ -416,7 +475,7 @@ function switchTab(tabName) {
 
     document.querySelector(`.modal-tab[data-tab="${tabName}"]`)?.classList.add('active');
 
-    const tabMap = { full: 'tabFull', ai: 'tabAi' };
+    const tabMap = { full: 'tabFull', ai: 'tabAi', triage: 'tabTriage' };
     const el = document.getElementById(tabMap[tabName]);
     if (el) el.style.display = 'block';
 }
@@ -604,3 +663,507 @@ function showTestResult(id, message, success) {
     el.textContent = message;
     el.className = 'test-result' + (success ? '' : ' error');
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Session 5: Triage observability + controls                  */
+/* ─────────────────────────────────────────────────────────── */
+
+let attemptsFilter = 'any';
+
+function showToast(elId, msg, isError) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('error', !!isError);
+    el.classList.add('show');
+    clearTimeout(el._toastTimer);
+    el._toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function fmtMs(ms) {
+    if (ms == null || isNaN(ms)) return '—';
+    if (ms < 1000) return ms + 'ms';
+    const s = ms / 1000;
+    if (s < 60) return s.toFixed(1) + 's';
+    const m = Math.floor(s / 60), rs = Math.floor(s % 60);
+    return `${m}m ${rs}s`;
+}
+
+function fmtTokens(n) {
+    if (n == null || isNaN(n)) return '0';
+    if (n < 1000) return String(n);
+    if (n < 1e6)  return (n / 1000).toFixed(1) + 'k';
+    return (n / 1e6).toFixed(2) + 'M';
+}
+
+// ── Header strip ────────────────────────────────────────────
+
+async function refreshTriageBar() {
+    try {
+        const [pollerR, lastR] = await Promise.all([
+            fetch('/api/poller/state'),
+            fetch('/api/triage/last-ticket'),
+        ]);
+        const poller = pollerR.ok ? await pollerR.json() : null;
+        const last   = lastR.ok   ? await lastR.json()   : null;
+
+        const bar = document.getElementById('triageBar');
+        const pollerBadge = document.getElementById('pollerBadge');
+        const quotaBadge = document.getElementById('quotaBadge');
+        const lastBadge  = document.getElementById('lastTicketBadge');
+        const killBtn    = document.getElementById('killSwitchBtn');
+
+        if (!poller) {
+            pollerBadge.textContent = '🤖 Poller: ?';
+            pollerBadge.className = 'triage-badge fail';
+            return;
+        }
+
+        bar.classList.toggle('killed', !!poller.killSwitch);
+        killBtn.textContent = poller.killSwitch ? '▶ Resume all' : '🛑 Kill switch';
+        killBtn.onclick = poller.killSwitch ? resumeAll : killSwitch;
+
+        let pollerText, pollerCls;
+        if (poller.killSwitch) { pollerText = '🛑 Killed';           pollerCls = 'fail'; }
+        else if (!poller.enabled) { pollerText = '🤖 Poller: paused'; pollerCls = 'warn'; }
+        else if (poller.lastError) { pollerText = '🤖 Poller: error';  pollerCls = 'warn'; }
+        else if (!poller.configured) { pollerText = '🤖 Poller: (env not set)'; pollerCls = 'warn'; }
+        else                   { pollerText = '🤖 Poller: running';   pollerCls = 'ok'; }
+        pollerBadge.textContent = pollerText;
+        pollerBadge.className = 'triage-badge ' + pollerCls;
+        pollerBadge.title = poller.lastError ? ('lastError: ' + poller.lastError) :
+                            poller.lastRun ? ('last run: ' + poller.lastRun) : '';
+
+        quotaBadge.textContent = `📊 Today: ${poller.quotaUsed}/${poller.quotaLimit}`;
+        quotaBadge.className = 'triage-badge' +
+            (poller.quotaUsed >= poller.quotaLimit ? ' warn' : '');
+
+        if (last && last.issueNumber) {
+            const ago = timeAgo(last.at);
+            const tok = fmtTokens((last.tokens || {}).total);
+            const ms  = fmtMs(last.grokMs);
+            lastBadge.innerHTML = `✅ Last: <a href="${escapeAttr(last.issueUrl || '#')}" target="_blank" rel="noopener">#${last.issueNumber}</a> · ${ago} · ${escapeHtml(last.model || '?')} · ${tok} tok · ${ms}`;
+            lastBadge.className = 'triage-badge ok clickable';
+            lastBadge.title = last.issueTitle || '';
+        } else {
+            lastBadge.textContent = '✅ Last: —';
+            lastBadge.className = 'triage-badge';
+        }
+    } catch (e) {
+        console.warn('refreshTriageBar failed:', e);
+    }
+}
+
+async function pollerPause() {
+    const r = await fetch('/api/poller/pause', { method: 'POST' });
+    showToast('triageToast', r.ok ? 'Poller paused' : 'Pause failed', !r.ok);
+    refreshTriageBar();
+}
+async function pollerResume() {
+    const r = await fetch('/api/poller/resume', { method: 'POST' });
+    showToast('triageToast', r.ok ? 'Poller resumed' : 'Resume failed', !r.ok);
+    refreshTriageBar();
+}
+async function pollerRunNow() {
+    showToast('triageToast', 'Running…', false);
+    const r = await fetch('/api/poller/run-now', { method: 'POST' });
+    const data = await r.json().catch(() => ({}));
+    const summary = data.outcomes ? Object.entries(data.outcomes).map(([k, v]) => `${k}=${v}`).join(' ')
+                                  : (data.skipped ? `skipped: ${data.skipped}` : '(no docs)');
+    showToast('triageToast', `Run: ${summary}`, !!data.error);
+    refreshTriageBar(); loadAttempts(); loadStats();
+}
+async function killSwitch() {
+    if (!confirm('Activate kill switch?\n\nNo Grok calls, no GitHub writes, poller paused.')) return;
+    const r = await fetch('/api/triage/kill', { method: 'POST' });
+    showToast('triageToast', r.ok ? 'Kill switch active' : 'Failed', !r.ok);
+    refreshTriageBar();
+}
+async function resumeAll() {
+    const r = await fetch('/api/triage/resume', { method: 'POST' });
+    showToast('triageToast', r.ok ? 'Resumed' : 'Failed', !r.ok);
+    refreshTriageBar();
+}
+
+// ── Stats panel ─────────────────────────────────────────────
+
+async function loadStats() {
+    try {
+        const r = await fetch('/api/triage/stats');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const stats = await r.json();
+        renderStatsPanel(stats);
+    } catch (e) {
+        document.getElementById('statsCards').innerHTML =
+            `<div class="empty">Stats unavailable: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function statCardHtml(title, s) {
+    s = s || {};
+    const total = s.attempts || 0;
+    const pct = (n) => total ? Math.round((n || 0) * 100 / total) : 0;
+    const tbm = s.tokensByModel || {};
+    const models = Object.keys(tbm).slice(0, 3)
+        .map(m => `<tr><td>↳ ${escapeHtml(m)}</td><td>${fmtTokens(tbm[m])}</td></tr>`).join('');
+    return `
+      <div class="stat-card triage">
+        <h5>${escapeHtml(title)}</h5>
+        <div class="num">${total} attempts</div>
+        <table>
+          <tr><td>🟢 Created</td><td>${s.created || 0} <span class="muted">(${pct(s.created)}%)</span></td></tr>
+          <tr><td>🔁 Commented</td><td>${s.commented || 0} <span class="muted">(${pct(s.commented)}%)</span></td></tr>
+          <tr><td>⚪ Skipped</td><td>${s.skipped || 0}</td></tr>
+          <tr><td>⏳ Deferred</td><td>${s.deferred || 0}</td></tr>
+          <tr><td>❌ Errors</td><td>${s.errors || 0}</td></tr>
+          <tr><td>Tokens</td><td>${fmtTokens(s.tokensTotal)}</td></tr>
+          ${models}
+          <tr><td>Grok time</td><td>${fmtMs(s.grokMsTotal)}</td></tr>
+          <tr><td>avg</td><td>${fmtMs(s.avgGrokMs)}</td></tr>
+        </table>
+      </div>
+    `;
+}
+
+function renderStatsPanel(stats) {
+    const cards = document.getElementById('statsCards');
+    cards.innerHTML =
+        statCardHtml('Today',    stats.today) +
+        statCardHtml('Last 24h', stats.last24h) +
+        statCardHtml('Lifetime', stats.lifetime);
+
+    const today = stats.today || {};
+    document.getElementById('statsSummaryLine').textContent =
+        ` · today: ${today.created || 0} created · ${today.commented || 0} commented · ` +
+        `quota ${stats.quota?.used || 0}/${stats.quota?.limit || 0}`;
+
+    const hero = document.getElementById('lastTicketHero');
+    const lt = stats.lastTicket;
+    if (lt && lt.issueNumber) {
+        const tok = fmtTokens((lt.tokens || {}).total);
+        const ms  = fmtMs(lt.grokMs);
+        hero.classList.remove('empty-state');
+        hero.innerHTML = `
+          ✅ <a href="${escapeAttr(lt.issueUrl || '#')}" target="_blank" rel="noopener">#${lt.issueNumber}</a>
+          · ${escapeHtml(lt.model || '?')} · ${ms} · ${tok} tokens
+          · severity: <span class="sev sev-${escapeAttr(lt.severity || 'medium')}">${escapeHtml(lt.severity || 'medium')}</span>
+          <br><strong>${escapeHtml(lt.issueTitle || '')}</strong>
+          <br><span class="muted">${timeAgo(lt.at)} · docId=${escapeHtml(lt.docId || '')}</span>
+        `;
+    } else {
+        hero.classList.add('empty-state');
+        hero.innerHTML = '✅ Last ticket created: — (none yet)';
+    }
+}
+
+// ── Recent triage attempts feed ─────────────────────────────
+
+function setAttemptsFilter(outcome) {
+    attemptsFilter = outcome;
+    document.querySelectorAll('#attemptsFilterBar .filter-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.outcome === outcome);
+    });
+    loadAttempts();
+}
+
+async function loadAttempts() {
+    try {
+        const r = await fetch(`/api/triage/attempts?limit=50&outcome=${encodeURIComponent(attemptsFilter)}`);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const items = await r.json();
+        renderAttempts(items);
+    } catch (e) {
+        document.getElementById('attemptsList').innerHTML =
+            `<div class="empty">Attempts unavailable: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function outcomeIcon(o) {
+    if (!o) return '·';
+    if (o === 'created')   return '🟢';
+    if (o === 'commented') return '🔁';
+    if (o === 'deferred')  return '⏳';
+    if (o === 'error')     return '❌';
+    if (o === 'skipped-kill-switch') return '🛑';
+    if (o.startsWith('skipped'))     return '⚪';
+    return '·';
+}
+
+function outcomeBucket(o) {
+    if (!o) return 'skipped';
+    if (o === 'created' || o === 'commented' || o === 'deferred' || o === 'error') return o;
+    return 'skipped';
+}
+
+function renderAttempts(items) {
+    const list = document.getElementById('attemptsList');
+    if (!items || items.length === 0) {
+        list.innerHTML = `<div class="empty">No attempts yet.</div>`;
+        document.getElementById('attemptsSummaryLine').textContent = ' · 0';
+        return;
+    }
+    document.getElementById('attemptsSummaryLine').textContent = ` · ${items.length}`;
+    list.innerHTML = items.map(a => {
+        const o = a.outcome || '';
+        const cls = 'outcome-' + outcomeBucket(o);
+        const num = a.issueNumber ? `<a href="${escapeAttr(a.issueUrl || '#')}" target="_blank" rel="noopener">#${a.issueNumber}</a>` : '—';
+        const sev = a.severity ? `<span class="sev sev-${escapeAttr(a.severity)}">${escapeHtml(a.severity)}</span>` : '';
+        const tok = fmtTokens((a.tokens || {}).total);
+        const ms  = fmtMs(a.grokMs);
+        const ago = timeAgo(a.at);
+        const doc = (a.docId || '').slice(0, 24);
+        const tip = JSON.stringify(a, null, 2);
+        return `
+          <div class="attempt-row ${cls}" title="${escapeAttr(tip)}">
+            <span class="ar-out">${outcomeIcon(o)} ${escapeHtml(o)}</span>
+            <span class="ar-num">${num}${sev}</span>
+            <span class="ar-reason">${escapeHtml(a.reason || '')}</span>
+            <span class="ar-doc">docId=${escapeHtml(doc)}</span>
+            <span class="ar-meta">${escapeHtml(a.trigger || '')} · ${ms} · ${tok} tok · ${escapeHtml(a.model || '—')} · ${ago}</span>
+          </div>
+        `;
+    }).join('');
+}
+
+// ── Deferred queue ──────────────────────────────────────────
+
+async function loadDeferred() {
+    try {
+        // No dedicated endpoint — derive from /api/triage/stats + attempts.
+        // Use /api/issues/status to look up which docIds have deferred=true,
+        // but that requires knowing the docIds up front. So we read attempts
+        // (filter outcome=deferred) which captures the same queue.
+        const r = await fetch('/api/triage/attempts?limit=100&outcome=deferred');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const items = await r.json();
+        renderDeferred(items);
+    } catch (e) {
+        document.getElementById('deferredList').innerHTML =
+            `<div class="empty">Deferred queue unavailable: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function renderDeferred(items) {
+    const list = document.getElementById('deferredList');
+    if (!items || items.length === 0) {
+        list.innerHTML = `<div class="empty">No deferred tickets — quota has not been exhausted.</div>`;
+        document.getElementById('deferredSummaryLine').textContent = ' · 0';
+        return;
+    }
+    document.getElementById('deferredSummaryLine').textContent = ` · ${items.length}`;
+    list.innerHTML = items.map(a => {
+        const doc = (a.docId || '').slice(0, 32);
+        const ago = timeAgo(a.at);
+        return `
+          <div class="attempt-row outcome-deferred">
+            <span class="ar-out">⏳ deferred</span>
+            <span class="ar-doc">docId=${escapeHtml(doc)}</span>
+            <span class="ar-reason">${escapeHtml(a.reason || '')}</span>
+            <span class="ar-meta">${ago}</span>
+            <button class="ticket-btn" onclick="triageRow('${escapeAttr(a.docId || '')}')">Force triage</button>
+          </div>
+        `;
+    }).join('');
+}
+
+// ── Controls modal ──────────────────────────────────────────
+
+async function openControlsPanel() {
+    try {
+        const r = await fetch('/api/triage/controls');
+        const c = r.ok ? await r.json() : {};
+        document.getElementById('ctrl_killSwitch').checked = !!c.killSwitch;
+        document.getElementById('ctrl_pollerEnabled').checked = !!c.pollerEnabled;
+        document.getElementById('ctrl_issueCreationEnabled').checked = !!c.issueCreationEnabled;
+        document.getElementById('ctrl_skipProcessedDocs').checked = !!c.skipProcessedDocs;
+        document.getElementById('ctrl_skipKnownSignatures').checked = !!c.skipKnownSignatures;
+        document.getElementById('ctrl_modelOverride').value = c.modelOverride || '';
+        document.getElementById('controlsMeta').textContent =
+            c.updatedAt ? `Last updated: ${c.updatedAt} by ${c.updatedBy || '?'}` : '';
+    } catch (e) {
+        console.warn('openControlsPanel failed:', e);
+    }
+    document.getElementById('controlsModal').classList.add('active');
+}
+
+function closeControlsPanel() {
+    document.getElementById('controlsModal').classList.remove('active');
+}
+
+let _saveTimers = {};
+function saveControl(key, value) {
+    clearTimeout(_saveTimers[key]);
+    _saveTimers[key] = setTimeout(async () => {
+        try {
+            const body = {}; body[key] = value;
+            const r = await fetch('/api/triage/controls', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const c = await r.json();
+            document.getElementById('controlsMeta').textContent =
+                `Last updated: ${c.updatedAt} by ${c.updatedBy}`;
+            showToast('controlsToast', '✓ saved');
+            refreshTriageBar();
+        } catch (e) {
+            showToast('controlsToast', 'Save failed: ' + e.message, true);
+        }
+    }, 300);
+}
+
+async function testGithubConnection(mode) {
+    const out = document.getElementById('testTicketResult');
+    if (!out) return;
+    const label = mode === 'create' ? '🧪 Creating test issue…' : '🔍 Verifying token…';
+    out.textContent = label;
+    out.style.color = '';
+    if (mode === 'create' && !confirm(
+        'This will create a real GitHub issue in the configured repo.\n\n' +
+        'The issue will be labeled "grokcoder-test" and the body explains ' +
+        'how to delete it. It does NOT consume your daily quota.\n\nProceed?'
+    )) {
+        out.textContent = '';
+        return;
+    }
+    try {
+        const r = await fetch('/api/triage/test-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.ok === false) {
+            out.style.color = '#ff6b6b';
+            out.textContent = `❌ ${data.error || ('HTTP ' + r.status)}`;
+            return;
+        }
+        out.style.color = '#2ea043';
+        if (mode === 'create' && data.issueUrl) {
+            out.innerHTML = `✅ Issue #${data.issueNumber} created` +
+                ` (${data.githubMs}ms). ` +
+                `<a href="${data.issueUrl}" target="_blank" rel="noopener">Open ↗</a><br>` +
+                `<small>repo=${data.repo} · canIssuesWrite=${data.canIssuesWrite}</small>`;
+            // refresh attempts feed so the new line shows up
+            if (typeof loadAttempts === 'function') loadAttempts();
+            if (typeof refreshTriageBar === 'function') refreshTriageBar();
+        } else {
+            const perms = data.permissions || {};
+            out.innerHTML = `✅ Token valid for ${data.repo}` +
+                ` (${data.githubMs}ms)<br>` +
+                `<small>canIssuesWrite=${data.canIssuesWrite}` +
+                ` · push=${!!perms.push}` +
+                ` · admin=${!!perms.admin}</small>`;
+        }
+    } catch (e) {
+        out.style.color = '#ff6b6b';
+        out.textContent = `❌ ${e.message}`;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const cm = document.getElementById('controlsModal');
+    if (cm) cm.addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) closeControlsPanel();
+    });
+});
+
+// ── Manual "Triage now" from a table row ────────────────────
+
+async function triageRow(docId) {
+    if (!docId) return;
+    showToast('triageToast', `Triaging ${docId.slice(0, 12)}…`);
+    try {
+        // 1) Grok call via manual triage route.
+        const r1 = await fetch(`/api/triage/${encodeURIComponent(docId)}`, { method: 'POST' });
+        const d1 = await r1.json().catch(() => ({}));
+        if (!r1.ok && r1.status !== 200) {
+            showToast('triageToast', `Triage failed: ${d1.error || r1.status}`, true);
+            return;
+        }
+        // If gate short-circuited (skipped-doc-processed etc.), just refresh.
+        if (!d1.triage) {
+            showToast('triageToast', `${d1.status || 'done'} (${d1.reason || ''})`);
+            await loadIssueStatuses(); filterTable(); refreshTriageBar(); loadAttempts();
+            return;
+        }
+        // 2) File the issue.
+        const r2 = await fetch('/api/issues', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                docId: d1.docId,
+                signature: d1.signature,
+                triage: d1.triage,
+                bug: d1.bug,
+                trigger: 'manual',
+                model: d1.model,
+                grokMs: d1.grokMs,
+                tokens: d1.tokens,
+                payloadBytes: d1.payloadBytes,
+            }),
+        });
+        const d2 = await r2.json().catch(() => ({}));
+        showToast('triageToast', `${d2.status || 'done'}${d2.number ? ' #' + d2.number : ''}`,
+                  !r2.ok && r2.status !== 200);
+        await loadIssueStatuses();
+        filterTable();
+        refreshTriageBar(); loadAttempts(); loadStats();
+    } catch (e) {
+        showToast('triageToast', 'Triage error: ' + e.message, true);
+    }
+}
+
+// ── Triage tab inside report modal ──────────────────────────
+
+function renderTriageTab(docId, error, report, session) {
+    const container = document.getElementById('tabTriage');
+    const status = (window.issueStatusMap || {})[docId];
+
+    let header;
+    if (status && status.hasIssue) {
+        const sev = status.severity ? `<span class="sev sev-${escapeAttr(status.severity)}">${escapeHtml(status.severity)}</span>` : '';
+        const ago = timeAgo(status.lastSeenAt || status.firstSeenAt);
+        const seen = (status.count && status.count > 1) ? ` · seen ×${status.count}` : '';
+        header = `
+          <div class="triage-sticky-header">
+            ✅ Issue already filed: <a href="${escapeAttr(status.issueUrl)}" target="_blank" rel="noopener">#${status.issueNumber}</a>
+            ${sev} · <span class="muted">${status.action || 'created'} ${ago}${seen}</span>
+            <br><strong>${escapeHtml(status.issueTitle || '')}</strong>
+            <div class="triage-tab-actions">
+              <a class="triage-btn" href="${escapeAttr(status.issueUrl)}" target="_blank" rel="noopener">Open on GitHub ↗</a>
+              <button class="triage-btn" onclick="triageRow('${escapeAttr(docId)}')">Re-run triage</button>
+            </div>
+          </div>`;
+    } else if (status && status.deferred) {
+        header = `
+          <div class="triage-sticky-header deferred">
+            ⏳ Queued for triage — ${escapeHtml(status.reason || 'deferred')}.
+            The poller will create this ticket tomorrow.
+            <div class="triage-tab-actions">
+              <button class="triage-btn" onclick="triageRow('${escapeAttr(docId)}')">Force triage</button>
+            </div>
+          </div>`;
+    } else {
+        header = `
+          <div class="triage-sticky-header none">
+            ⚪ No GitHub issue yet for this session.
+            <div class="triage-tab-actions">
+              <button class="triage-btn" onclick="triageRow('${escapeAttr(docId)}')">🐛 Triage → GitHub</button>
+            </div>
+          </div>`;
+    }
+
+    container.innerHTML = header +
+        `<div class="triage-result-block">
+           <strong>Doc:</strong> ${escapeHtml(docId)}<br>
+           <span class="muted">Click "Triage" above to send this session to Grok and (depending on quota / dedup) open or comment on a GitHub issue. Watch the "Recent triage attempts" panel below for the result.</span>
+         </div>`;
+}
+
+// ── Boot ────────────────────────────────────────────────────
+
+// Periodic refresh of the triage bar (15 s).
+setInterval(refreshTriageBar, 15000);
+refreshTriageBar();

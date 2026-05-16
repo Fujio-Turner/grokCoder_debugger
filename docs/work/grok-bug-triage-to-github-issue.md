@@ -1,4 +1,4 @@
-# Grok-Powered Bug Triage → GitHub Issue Pipeline (v2.1)
+# Grok-Powered Bug Triage → GitHub Issue Pipeline (v2.2)
 
 > Multi-session implementation plan. Each **Session N** is a self-contained
 > work unit. Pick up at the next unchecked session in any new chat.
@@ -12,6 +12,189 @@
 > per-error ticket status — issue number, link, created-at timestamp,
 > recurrence count, and the action that produced it
 > (`created` / `commented` / `deferred` / `skipped`).
+>
+> **What changed in v2.2:** GUI control panel with kill-switch + pause +
+> "skip already-handled" guard, and full per-attempt telemetry — Grok latency
+> (ms), prompt/completion/total tokens, model version, outcome
+> (`created`/`commented`/`skipped`/`deferred`/`error`) and the `reason`
+> when it didn't create a ticket. Aggregate stats endpoint + a "Stats" panel.
+
+---
+
+## Implementation log
+
+- ✅ **Session 1** — env vars wired into [`app.py`](../../app.py), `toons>=0.5.0`
+  added to [`requirements.txt`](../../requirements.txt), `state.json` load /
+  save / quota-roll helpers (`_load_state`, `_save_state`, `_today_utc`,
+  `_now_utc_iso`, `_roll_quota_if_new_day`), full default state shape
+  (`controls`, `lastTicket`, `attempts[]`, `stats`, `poller`), state init at
+  module load, `./data:/data` volume in
+  [`docker-compose.yml`](../../docker-compose.yml), `/data` mkdir in
+  [`Dockerfile`](../../Dockerfile), `GET /api/triage/health` route, and new
+  env-var rows in the [`README`](../../README.md). Verified: `state.json`
+  is created on first boot and `quota_used` survives a simulated restart.
+- ✅ **Session 2** — `_build_bug_payload`, `_fetch_repo_context` (10 min
+  in-memory cache), `_to_toon` (logs JSON-vs-TOON size reduction),
+  `_call_grok` (returns telemetry dict with `model`, `grokMs`, `tokens`,
+  `payloadBytes`, and surfaces failures as `error` instead of throwing),
+  and `POST /api/triage/<doc_id>` (503 when `GROK_API_KEY` is empty, honors
+  `controls.modelOverride`). Verified end-to-end with a mocked Grok response:
+  payload is built, TOON-encoded, sent, and the route returns
+  `{bug, triage, model, tokens, payloadBytes, grokMs, totalMs}`.
+- ✅ **Session 3** — full dedup engine + GitHub client + daily quota +
+  telemetry surface. New helpers in [`app.py`](../../app.py):
+  `_normalize`, `compute_signature`, `_first_error_tool`, `_signature_for_doc`,
+  GitHub clients (`_gh_headers`, `_github_search_issue_by_signature`,
+  `_github_search_issue_by_doc`, `_github_get_issue`, `_github_create_issue`,
+  `_github_comment_issue`), Markdown templates (`_format_issue_body` with both
+  `grokcoder-debugger-id` and `grokcoder-signature` HTML markers,
+  `_format_recurrence_comment`), state mutators (`_record_attempt` ring-buffer
+  cap 200, bumps `stats.today` + `stats.lifetime`, updates `lastTicket` on
+  `created`), `_gate` (kill-switch + skipProcessedDocs + skipKnownSignatures),
+  `_hydrate_signature_from_github` (state-wipe rescue). New routes:
+  `POST /api/issues` (full create-vs-comment-vs-defer pipeline),
+  `GET /api/issues/status?docIds=…`, `GET /api/issues/recent`,
+  `GET /api/triage/attempts?limit&outcome`, `GET /api/triage/stats`
+  (today / last24h / lifetime + lastTicket + lastAttempt + quota),
+  `GET /api/triage/last-ticket`, `GET/POST /api/triage/controls`,
+  `POST /api/triage/kill`, `POST /api/triage/resume`. The existing
+  `POST /api/triage/<doc_id>` now runs `_gate` before spending Grok tokens
+  and records Grok errors as `outcome="error"` attempts. Verified with
+  mocked Grok + GitHub: signature stability across re-runs, create,
+  dup-docId → `skipped-doc-processed`, dup-sig → `commented` with
+  `occurrences=2`, quota exhaustion → `deferred-quota` (HTTP 429),
+  all three `status` shapes, attempts feed + outcome filter, stats
+  totals + lastTicket, controls / killSwitch / resume gating both routes,
+  and GitHub-search rehydrate after a state wipe still routes to the
+  existing issue (`commented` on `#42`).
+- ✅ **Session 4** — background poller thread + control endpoints. New
+  module-level `_poller_state` (`lastRun`, `lastError`, `running`,
+  `thread`) + `_poller_lock`. New helpers in [`app.py`](../../app.py):
+  `_discover_error_docs(limit=50)` (N1QL `ANY t IN d.tools_called
+  SATISFIES t.error IS NOT MISSING AND t.error != {} END`, ordered
+  newest-first), `_process_poller_doc(doc, trigger)` (runs the full
+  pipeline with **two pre-Grok short-circuits** — `_gate()` and the
+  quota guard — and delegates the actual create-vs-comment-vs-defer
+  decision to the existing `POST /api/issues` endpoint via Flask's
+  `test_client`, so dedup logic isn't duplicated), `_poller_run_once()`
+  (re-reads `controls.pollerEnabled` + `controls.killSwitch` every tick
+  so GUI changes apply immediately; breaks early between docs if either
+  flag flips; updates `state.poller.lastRun`/`lastError` + the in-process
+  `_poller_state`; guards against concurrent runs via `_poller_lock`),
+  `_poller_loop()` (sleeps `POLL_INTERVAL_SEC` between ticks),
+  `_maybe_start_poller()` (no-op when `POLLER_ENABLED=false`, when
+  `GROK_API_KEY` is empty, or when `GITHUB_TOKEN` is empty; idempotent
+  if the thread is already alive). New routes:
+  `GET /api/poller/state` (returns `enabled`, `killSwitch`, `intervalSec`,
+  `lastRun`, `lastError`, `running`, `threadAlive`, `quotaUsed`,
+  `quotaLimit`, `configured`), `POST /api/poller/pause` /
+  `POST /api/poller/resume` (mirror `controls.pollerEnabled` + persist;
+  `resume` also re-invokes `_maybe_start_poller()`), and
+  `POST /api/poller/run-now` (triggers a single iteration synchronously,
+  works even when the daemon thread isn't running — e.g. when env vars
+  are missing or `POLLER_ENABLED=false`). `_maybe_start_poller()` is now
+  called at import time so the poller also runs under a WSGI server.
+  Verified with a mocked Grok + GitHub: `pause`/`resume` toggle
+  `controls.pollerEnabled`, `run-now` while paused returns
+  `{skipped:'disabled'}`, kill-switch yields `skipped-kill-switch`,
+  exhausted quota yields `deferred` (and the docId lands in
+  `state.deferred[]`), happy-path yields `created` (issue #42,
+  `state.lastTicket.issueNumber=42`, `quota_used=1`), a second doc
+  with the same signature yields `skipped-known-signature` and does
+  **not** burn Grok or increment quota, and `/api/poller/state.lastRun`
+  is stamped after `run-now` even when discovery returns zero docs.
+- ✅ **Session 5** — full triage dashboard UI. In
+  [`templates/index.html`](../../templates/index.html): new `.triage-bar`
+  header strip (`#pollerBadge`, `#quotaBadge`, `#lastTicketBadge` + Pause /
+  Resume / Run-now / 🛑 Kill switch / ⚙ Settings buttons + inline toast),
+  collapsible `<details>` blocks for `📊 Triage stats`, `🧾 Recent triage
+  attempts` (with `All|Created|Commented|Skipped|Deferred|Errors` filter
+  pills + Refresh), and `⏳ Deferred queue`; new `Ticket` column added to
+  the error table (colspan bumped 5 → 6 in every placeholder row); new
+  `🐛 Triage → GitHub` tab inside the report modal; new `#controlsModal`
+  bound to `GET/POST /api/triage/controls` with toggles for `killSwitch`,
+  `pollerEnabled`, `issueCreationEnabled`, `skipProcessedDocs`,
+  `skipKnownSignatures`, plus a `modelOverride` dropdown.
+  In [`static/js/script.js`](../../static/js/script.js): `timeAgo(iso)`
+  (`just now`, `Ns`, `Nm`, `Nh`, `Nd`), `fmtMs`, `fmtTokens`,
+  `renderTicketCell(s, docId)` (4 visual states 🟢/🔁/⏳/⚪ — created/
+  commented/deferred/none — with severity pill + `seen ×N` + `Triage now`
+  button on uncovered docs), `loadIssueStatuses()` (batch
+  `GET /api/issues/status?docIds=…` after every `loadData()`),
+  `refreshTriageBar()` (polls `/api/poller/state` + `/api/triage/last-ticket`
+  every 15 s, flips badges/colors and rewires the kill button between
+  `🛑 Kill switch` ↔ `▶ Resume all`), `pollerPause/Resume/RunNow`,
+  `killSwitch`/`resumeAll`, `loadStats() → renderStatsPanel()` (three
+  cards: today / last24h / lifetime, plus a Last-ticket hero), `loadAttempts()
+  → renderAttempts()` with outcome-bucketed border colors and full-attempt
+  JSON tooltips, `setAttemptsFilter()`, `loadDeferred() → renderDeferred()`
+  with per-row Force-triage buttons, `openControlsPanel`/`closeControlsPanel`
+  and `saveControl(key, value)` (debounced 300 ms, posts only the changed
+  field, shows a ✓ saved toast and updates `Last updated: … by …`),
+  `triageRow(docId)` (manual flow: `POST /api/triage/<docId>` → if a
+  triage came back, `POST /api/issues`; refreshes statuses + bar +
+  attempts + stats afterward; handles gate short-circuits gracefully),
+  and `renderTriageTab(docId, …)` for the modal sticky-header (three
+  variants: ✅ Issue already filed / ⏳ Queued for triage / ⚪ none).
+  `viewReport()` now also renders the Triage tab; `switchTab()` knows
+  about `triage`. In
+  [`static/css/style.css`](../../static/css/style.css): `.triage-bar`
+  (+ `.killed` red variant), `.triage-badge ok|warn|fail|clickable`,
+  `.triage-btn` (+ `.danger`), `.triage-toast`, `.muted`,
+  `.collapse-panel`, `.sev sev-low|medium|high|critical` pills,
+  `.ticket-cell`/`.ticket-deferred`/`.ticket-none`/`.ticket-btn`,
+  `.stats-row`/`.stat-card.triage`/`.last-ticket-hero`,
+  `.attempts-filter-bar`/`.filter-pill`/`.attempts-list`/`.attempt-row`
+  with one `border-left` color per `outcome-created|commented|skipped|
+  deferred|error`, `.controls-row`, `.modal-tab.triage-tab`, and
+  `.triage-sticky-header` (default / `.deferred` / `.none`).
+  Verified end-to-end with a flask `test_client`: `/` renders cleanly
+  and contains every Session-5 element ID, the `Ticket` column appears
+  in the error table, all read + write endpoints
+  (`/api/poller/{state,pause,resume,run-now}`,
+  `/api/triage/{stats,last-ticket,controls,attempts}`,
+  `/api/issues/{status,recent}`) return 200, pause/resume actually flip
+  `controls.pollerEnabled`, and every required JS function + CSS class
+  is present in the served assets.
+- ✅ **Session 6** — hardening, observability, deferred drain, and operator
+  docs. New helper in [`app.py`](../../app.py): `_drain_deferred()` runs at
+  the top of every `_poller_run_once()` tick. It calls
+  `_roll_quota_if_new_day()` first so a fresh UTC day automatically reopens
+  quota; snapshots `state.deferred[]`, clears it, then iterates oldest-first
+  re-fetching each source doc via `_fetch_document()` and re-running the full
+  `_process_poller_doc(doc, trigger='poller-drain')` pipeline. If quota
+  re-fills mid-drain the unprocessed tail is pushed back onto
+  `state.deferred[]`; missing source docs are dropped with a log line; per-
+  outcome counters are returned. Quota rollover (#1) was already covered at
+  every read site (`/api/issues`, `/api/triage/{stats,health}`,
+  `_process_poller_doc`, `/api/poller/state`), and `_record_attempt()` now
+  also calls `_roll_quota_if_new_day()` so per-day stats roll even when no
+  HTTP route is hit. Structured logging (#3) is centralized inside
+  `_record_attempt()` — one line per pipeline step: `[triage] doc=… sig=…
+  action=… url=… grokMs=… tokens=… quota=N/M trigger=… reason=…` — replacing
+  the ad-hoc print in `/api/issues`. Cost guard (#4) was moved into
+  `_to_toon(payload, max_bytes=_MAX_PAYLOAD_BYTES)`: if the encoded TOON
+  exceeds the cap it drops `chatTail` first and then aggressively truncates
+  `toolErrors[*].error` to 512 B and re-encodes, logging each pass. README
+  (#5) gained an "Auto-Triage Pipeline" section covering env vars, the two-
+  layer dedup (`processed_docs` + signature), daily quota + deferred drain,
+  the 32 KB cost guard, the full list of inspection endpoints, the
+  structured-log format, the outcome vocabulary, and Docker persistence.
+  Dockerfile (#6) now `chmod 0777 /data` and declares it as a `VOLUME` so
+  `state.json` survives `docker compose down`. New helper script
+  [`scripts/dump_state.py`](../../scripts/dump_state.py) (#7, optional)
+  pretty-prints `state.json` — quota, controls, top-20 signatures by
+  occurrence count, deferred queue, last 15 attempts, and lifetime stats.
+  `/api/poller/run-now` and the periodic tick now also report
+  `deferredDrain: {drained, outcomes}` so the GUI / operator can confirm a
+  drain happened. Verified end-to-end with a smoke test: with
+  `DAILY_ISSUE_QUOTA=2`, priming `state.deferred=[{docId:'foo',…}]` and
+  `quota_used=5`, `_drain_deferred()` correctly returned
+  `{'drained':0,'skipped':'quota-still-full'}`; clearing the deferred queue
+  returned `{'drained':0,'skipped':'empty'}`; the cost guard reduced a 50 KB
+  payload to 603 B in two passes; `_record_attempt(outcome='created')`
+  emitted the expected structured `[triage] …` line; and
+  `scripts/dump_state.py` rendered the state file end-to-end.
 
 ---
 
@@ -211,12 +394,90 @@ loaded/persisted on disk. No behavior change yet.
        { "docId": "doc-def", "signature": "<sha1>",
          "at": "2026-05-16T19:00:00Z", "reason": "quota" }
      ],
+
+     "controls": {
+       "pollerEnabled":   true,
+       "issueCreationEnabled": true,
+       "skipKnownSignatures": true,
+       "skipProcessedDocs":   true,
+       "modelOverride":   null,
+       "killSwitch":      false,
+       "updatedAt":       "2026-05-16T12:00:00Z",
+       "updatedBy":       "ui"
+     },
+
+     "lastTicket": {
+       "issueNumber": 42,
+       "issueUrl":    "https://github.com/.../issues/42",
+       "issueTitle":  "...",
+       "docId":       "doc-abc",
+       "signature":   "<sha1>",
+       "severity":    "high",
+       "at":          "2026-05-16T12:00:00Z",
+       "model":       "grok-4.3.0",
+       "grokMs":      48213,
+       "tokens":      { "prompt": 3120, "completion": 980, "total": 4100 }
+     },
+
+     "attempts": [
+       {
+         "id":         "att-2026-05-16T12-00-00Z-doc-abc",
+         "at":         "2026-05-16T12:00:00Z",
+         "docId":      "doc-abc",
+         "signature":  "<sha1>",
+         "outcome":    "created",
+         "reason":     null,
+         "issueNumber": 42,
+         "issueUrl":   "https://github.com/.../issues/42",
+         "severity":   "high",
+         "model":      "grok-4.3.0",
+         "grokMs":     48213,
+         "githubMs":   612,
+         "totalMs":    49102,
+         "tokens":     { "prompt": 3120, "completion": 980, "total": 4100 },
+         "payloadBytes": { "jsonEquivalent": 18432, "toonSent": 9210 },
+         "trigger":    "poller"
+       }
+     ],
+
+     "stats": {
+       "today": {
+         "date": "2026-05-16",
+         "attempts": 7, "created": 3, "commented": 2,
+         "skipped": 1, "deferred": 1, "errors": 0,
+         "tokensTotal": 24310, "grokMsTotal": 312045
+       },
+       "lifetime": {
+         "attempts": 152, "created": 48, "commented": 71,
+         "skipped": 22, "deferred": 6, "errors": 5,
+         "tokensTotal": 612433, "grokMsTotal": 7240133
+       }
+     },
+
      "pollerEnabled": true
    }
    ```
+   - `controls.killSwitch=true` → **no** Grok calls and **no** GitHub writes
+     happen, period. Highest-priority gate, checked before everything else.
+   - `controls.issueCreationEnabled=false` → Grok triage may still run for
+     preview, but `POST /api/issues` returns `skipped-issue-creation-disabled`
+     and the poller short-circuits before calling GitHub.
+   - `controls.skipKnownSignatures=true` (default) is the "don't recreate
+     tickets I've already done" guard. If `false`, the comment-on-dup path
+     is also disabled (every signature, even repeated, would be sent to Grok —
+     **expensive**, use only for debugging).
+   - `controls.skipProcessedDocs=true` (default) skips any docId already in
+     `processed_docs`.
+   - `controls.modelOverride` (e.g. `"grok-4-latest"`) wins over `GROK_MODEL`
+     env var, so the GUI can dial down to a cheaper model without restarting.
+
    Every code path that mutates state **must** stamp `at` / `firstSeenAt` /
    `lastSeenAt` (UTC, ISO-8601) and store `action` (one of
-   `created` | `commented` | `deferred` | `skipped-doc-processed`).
+   `created` | `commented` | `deferred` | `skipped-doc-processed` |
+   `skipped-known-signature` | `skipped-issue-creation-disabled` |
+   `skipped-kill-switch` | `error`).
+   `attempts` is a ring buffer capped at 200 most recent entries; older
+   data is rolled up into `stats.lifetime` before being dropped.
 6. New route `GET /api/triage/health`:
    ```json
    {
@@ -310,7 +571,32 @@ endpoint exposes it; no auto-poller, no GitHub yet.
 
 5. **`POST /api/triage/<doc_id>`** — fetch doc → build payload → call Grok →
    return `{"bug": payload, "triage": result, "tokens": {...}, "ms": ...}`.
-   503 if `GROK_API_KEY` is empty.
+   503 if `GROK_API_KEY` is empty. Make `_call_grok` return a **telemetry
+   dict** that the route + Session 3 will both consume:
+   ```python
+   def _call_grok(bug, repo):
+       t0 = time.monotonic()
+       ...
+       resp_json = r.json()
+       usage = resp_json.get("usage", {}) or {}
+       return {
+           "triage":  json.loads(content),
+           "model":   resp_json.get("model") or GROK_MODEL,   # actual model echoed back by xAI
+           "grokMs":  int((time.monotonic() - t0) * 1000),
+           "tokens": {
+               "prompt":     usage.get("prompt_tokens", 0),
+               "completion": usage.get("completion_tokens", 0),
+               "total":      usage.get("total_tokens", 0),
+           },
+           "payloadBytes": {
+               "jsonEquivalent": len(json.dumps(bug)) + len(json.dumps(repo)),
+               "toonSent":       len(bug_toon) + len(repo_toon),
+           },
+       }
+   ```
+   On any failure also return a `"error": "..."` field; the caller turns this
+   into an `attempts[]` entry with `outcome="error"` so failures are still
+   visible in the stats UI (not silently lost).
 
 ### Verify
 
@@ -483,8 +769,77 @@ create-new vs comment-on-existing vs over-quota — and persists everything to
          "issueNumber":42,"issueUrl":"...","count":3 }
      ]
      ```
-     To support this, append every action to a bounded ring buffer
-     `state['recentActions']` (cap at 100) when mutating state.
+     This is now sourced from `state.attempts[]` (filtered to
+     `outcome in ('created','commented')` for backwards-compat) — see
+     `/api/triage/attempts` below for the full unfiltered feed.
+
+7. **Telemetry / "did we just create a ticket?" endpoints:**
+
+   - `GET /api/triage/attempts?limit=50&outcome=any` → full per-attempt feed,
+     newest first, with `outcome`, `reason`, `model`, `grokMs`, `tokens`,
+     `payloadBytes`, `trigger`, `issueNumber|null`, `issueUrl|null`. Optional
+     `outcome` filter: `created|commented|skipped|deferred|error|any`.
+
+   - `GET /api/triage/stats` → ready-to-render aggregates from `state.stats`
+     plus a derived `last24h` block (computed on the fly from `attempts[]`):
+     ```json
+     {
+       "today":    { "attempts":7,"created":3,"commented":2,"skipped":1,
+                     "deferred":1,"errors":0,"tokensTotal":24310,
+                     "grokMsTotal":312045,"avgGrokMs":44578,
+                     "tokensByModel":{"grok-4.3.0":24310} },
+       "last24h":  { "...same shape..." },
+       "lifetime": { "...same shape..." },
+       "lastTicket": { "<state.lastTicket>" },
+       "lastAttempt": { "<attempts[0]>" },
+       "quota":    { "used":3, "limit":10, "date":"2026-05-16" }
+     }
+     ```
+
+   - `GET /api/triage/last-ticket` → just `state.lastTicket` (used by the
+     dashboard header strip so the user always sees "✅ Last ticket created:
+     #42 · 3h ago · grok-4.3.0 · 4.1k tok · 48s").
+
+8. **Controls endpoints (the "levers"):**
+
+   - `GET  /api/triage/controls` → current `state.controls` block.
+   - `POST /api/triage/controls` body: any subset of
+     `{pollerEnabled, issueCreationEnabled, skipKnownSignatures,
+     skipProcessedDocs, modelOverride, killSwitch}`. Updates persist
+     immediately, stamp `updatedAt`/`updatedBy="ui"`, and the running poller
+     loop picks them up on its next iteration (it re-reads state every cycle).
+   - `POST /api/triage/kill`  → shortcut: `killSwitch=true`,
+     `pollerEnabled=false`, `issueCreationEnabled=false`. Big red button.
+   - `POST /api/triage/resume` → opposite of kill: clears `killSwitch`,
+     re-enables poller + issue creation.
+
+9. **Enforcement order in every triage path** (manual route, poller,
+   `POST /api/issues`). Check controls **before** spending Grok tokens:
+
+   ```python
+   def _gate(state, doc_id, signature, *, trigger):
+       c = state['controls']
+       if c['killSwitch']:
+           return _record_attempt(state, doc_id, signature, 'skipped-kill-switch',
+                                  reason='killSwitch=true', trigger=trigger)
+       if c['skipProcessedDocs'] and doc_id in state['processed_docs']:
+           prev = state['processed_docs'][doc_id]
+           return _record_attempt(state, doc_id, signature, 'skipped-doc-processed',
+                                  reason=f"already filed as #{prev.get('issueNumber')}",
+                                  issueUrl=prev.get('issueUrl'),
+                                  issueNumber=prev.get('issueNumber'),
+                                  trigger=trigger)
+       if c['skipKnownSignatures'] and signature in state['signatures']:
+           # comment-on-dup path still runs, but it does NOT call Grok
+           return _comment_on_dup(state, doc_id, signature, trigger=trigger)
+       return None  # → proceed to Grok
+   ```
+
+   And **`_record_attempt(...)`** is the single place that:
+   - appends to `state.attempts[]` (ring-buffer cap 200),
+   - bumps `state.stats.today.*` and `state.stats.lifetime.*` counters
+     (rolling the day if needed),
+   - updates `state.lastTicket` **only** when `outcome == 'created'`.
 
 ### Verify
 
@@ -499,6 +854,15 @@ create-new vs comment-on-existing vs over-quota — and persists everything to
 - `GET /api/issues/status?docIds=<created>,<deferred>,<unknown>` returns the
   three expected shapes.
 - `GET /api/issues/recent` returns at least one entry after a create.
+- `GET /api/triage/attempts` shows every attempt (including skips & errors)
+  with `outcome`, `reason`, `model`, `grokMs`, `tokens`.
+- `GET /api/triage/stats` returns non-zero `today`/`last24h`/`lifetime` counts
+  after a few attempts; `lastTicket` matches the most recent `outcome=created`.
+- `POST /api/triage/kill` → next call to `POST /api/triage/<id>` returns
+  `skipped-kill-switch`; `POST /api/triage/resume` restores normal behavior.
+- `POST /api/triage/controls {"modelOverride":"grok-4-latest"}` → next Grok
+  call uses `grok-4-latest`, visible in `state.attempts[0].model`, without
+  restarting the container.
 
 ---
 
@@ -683,7 +1047,7 @@ If `deferred`, show:
 [Force create now]   (consumes 1 from tomorrow's quota)
 ```
 
-### D. Header strip: poller + quota status
+### D. Header strip: poller + quota + last-ticket + kill switch
 
 Add above the filters bar:
 
@@ -691,27 +1055,100 @@ Add above the filters bar:
 <div class="triage-bar">
   <span id="pollerBadge">🤖 Poller: …</span>
   <span id="quotaBadge">📊 Today: …/…</span>
+  <span id="lastTicketBadge" title="">✅ Last: —</span>
   <button onclick="pollerPause()">⏸ Pause</button>
   <button onclick="pollerResume()">▶ Resume</button>
   <button onclick="pollerRunNow()">⟳ Run now</button>
+  <button class="danger" onclick="killSwitch()">🛑 Kill switch</button>
+  <button onclick="openControlsPanel()">⚙ Settings</button>
 </div>
 ```
 
-Poll `/api/poller/state` + `/api/triage/health` every 15 s; flip
-`#pollerBadge` red when paused, amber when `lastError` is non-null.
+- `#lastTicketBadge` sourced from `GET /api/triage/last-ticket`. Shows
+  `"✅ Last: #42 · 3h ago · grok-4.3.0 · 4.1k tok · 48s"`. Click → opens
+  the issue in a new tab.
+- `🛑 Kill switch` posts to `/api/triage/kill`, turns the whole strip red,
+  and changes its own label to `▶ Resume all`.
+- Poll `/api/poller/state` + `/api/triage/health` + `/api/triage/last-ticket`
+  every 15 s; flip `#pollerBadge` red when paused, amber when `lastError`
+  is non-null.
 
-### E. "Recent triage activity" feed
+### D.1. Controls panel (modal)
 
-Under the table, a collapsible panel that hits `/api/issues/recent?limit=20`
-and renders one line per action:
+`⚙ Settings` opens a modal bound to `GET/POST /api/triage/controls`. Each
+lever is a labeled toggle / dropdown that posts on change:
 
 ```
-🟢 created  #42  high   add_release_notes — failed write    docId=add-…   3h ago
-🔁 comment  #42         (same as #42, signature=abcd…)       docId=ar-2…  18m ago
-⏳ defer    —           tool_x error                          docId=tx-9…   2m ago
+┌─ Triage Controls ────────────────────────────────────┐
+│ [☐] 🛑 Kill switch (no Grok, no GitHub)              │
+│ [☑] 🤖 Background poller enabled                     │
+│ [☑] 🎫 Issue creation enabled                        │
+│ [☑] 🚫 Skip already-handled docIds                   │
+│ [☑] 🔁 Skip known signatures (don't recreate dups)   │
+│ Model override:  [ (use env GROK_MODEL)            ▾]│
+│                  options: grok-4-latest, grok-4.2.0, │
+│                           grok-4.3.0, (none)         │
+│ Last updated:  2026-05-16T12:00:00Z  by ui           │
+│                                                      │
+│ [Cancel]                                  [Save All] │
+└──────────────────────────────────────────────────────┘
 ```
 
-### F. Deferred queue panel
+Implementation: toggles call `POST /api/triage/controls` with just the
+changed field (debounced 300 ms). Show a small inline "✓ saved" toast.
+
+### E. "Recent triage attempts" feed (full telemetry)
+
+Under the table, a collapsible panel that hits `/api/triage/attempts?limit=50`
+and renders one line per attempt, including outcomes that did NOT create a
+ticket (and why):
+
+```
+🟢 created  #42  high   add_release_notes failed write   docId=add-…   poller  48.2s  4.1k tok  grok-4.3.0   3h ago
+🔁 comment  #42         dup-sig=abcd1234                  docId=ar-2…  poller  0.6s   0 tok    —            18m ago
+⚪ skipped  —           skipped-doc-processed             docId=add-…  manual  0.0s   0 tok    —             5m ago
+⏳ deferred —           quota 10/10 reached at 18:33      docId=tx-9…  poller  0.0s   0 tok    —             2m ago
+🛑 skipped  —           skipped-kill-switch               docId=zz-1…  poller  0.0s   0 tok    —             1m ago
+❌ error    —           Grok 503 (timeout after 360s)     docId=tx-7…  manual 360.0s  0 tok    grok-4.3.0    8m ago
+```
+
+Outcome filter buttons: `All | Created | Commented | Skipped | Deferred | Errors`.
+
+Hovering any row pops a tooltip with the full attempt JSON
+(`payloadBytes`, `githubMs`, `totalMs`, `trigger`, etc.).
+
+### F. Stats panel
+
+Top-of-page collapsible "📊 Triage stats" block sourced from
+`GET /api/triage/stats`. Three side-by-side cards (`today`, `last 24h`,
+`lifetime`), each showing:
+
+```
+┌─ Today ──────────────┐
+│ Attempts:        7   │
+│   ✓ Created:     3   │  (+ percentage bar)
+│   🔁 Commented:  2   │
+│   ⚪ Skipped:    1   │
+│   ⏳ Deferred:   1   │
+│   ❌ Errors:     0   │
+│ Quota:        3 / 10 │
+│ Tokens:    24,310    │
+│   ↳ grok-4.3.0  24k  │
+│ Grok time:    5m 12s │
+│   avg:        44.6s  │
+└──────────────────────┘
+```
+
+Plus a "**Last ticket created**" hero card sourced from `lastTicket`:
+
+```
+✅ #42 · grok-4.3.0 · 48.2s · 4,100 tokens · severity: high
+   "add_release_notes — failed write"
+   3h ago · docId=add-release-notes-refactor
+   [Open on GitHub ↗]
+```
+
+### G. Deferred queue panel
 
 Another collapsible block listing `state.deferred[]` so the user can audit
 what's waiting for tomorrow, with an "Force create now" button on each row
@@ -719,29 +1156,40 @@ what's waiting for tomorrow, with an "Force create now" button on each row
 once and decrements tomorrow's allowance instead — implement in Session 3 as
 an optional follow-up).
 
-### G. CSS polish
+### H. CSS polish
 
 In [`static/css/style.css`](../../static/css/style.css) add:
-- `.triage-bar { display:flex; gap:12px; … }`
+- `.triage-bar { display:flex; gap:12px; … }` (with `.danger` red variant)
 - `.ticket-cell a { font-weight:600; }`
 - `.sev-low/medium/high/critical` color pills
 - `.ticket-deferred { color:#caa42b; }`
 - `.ticket-none { color:#888; }`
+- `.attempt-row.outcome-created { border-left:3px solid #2ea043; }`
+  (and similar for commented / skipped / deferred / error)
+- `.stat-card .num { font-size:1.4em; font-weight:600; }`
 
 ### Verify
 
 - Fresh boot, no tickets yet → all rows show `⚪ —` + "Triage now" button;
-  header `0 / 10`, `Poller: running`.
+  header `0 / 10`, `Poller: running`, `Last: —`. Stats panel all zeros.
 - Click "Triage now" on a row → poller short-circuits, issue is created,
-  on next refresh the row shows `🟢 #42 high · just now`. Header ticks to `1 / 10`.
+  on next refresh the row shows `🟢 #42 high · just now`. Header ticks to
+  `1 / 10`, `Last: #42 · just now · grok-X · Yk tok · Zs`.
 - Insert a doc with a duplicate signature → after the next poller tick its
-  row shows `🔁 #42 seen ×2 · just now`; quota does NOT advance.
+  row shows `🔁 #42 seen ×2 · just now`; quota does NOT advance, and the
+  attempts feed gets a `🔁 comment` line with `0 tok` (no Grok was called).
 - Set `DAILY_ISSUE_QUOTA=1`, force a third unique error → row shows
-  `⏳ Deferred`. Deferred panel lists it.
+  `⏳ Deferred`. Deferred panel lists it. Attempts feed shows
+  `⏳ deferred — quota 1/1`.
+- Hit `🛑 Kill switch` → header turns red, poller pauses, next attempt
+  (auto or manual) records `🛑 skipped-kill-switch` with `reason="killSwitch=true"`.
+  No Grok or GitHub HTTP calls in the server log during this period.
+- Change `Model override` in the Settings modal to `grok-4-latest` and
+  re-trigger one triage → attempts feed shows new line with `model=grok-4-latest`.
 - Open the modal on a row that already has a ticket → sticky header shows
   the issue link + "Re-run triage" + "Add a comment".
-- Pause poller → header badge turns red; row "Triage now" buttons still work
-  manually.
+- Toggle off `Skip already-handled docIds` → next manual trigger on the same
+  docId actually goes back to Grok (visible in attempts feed); turn it back on.
 
 ---
 
@@ -776,12 +1224,12 @@ In [`static/css/style.css`](../../static/css/style.css) add:
 
 ## Quick resume checklist (paste into a new chat)
 
-- [ ] **Session 1** — env vars + `toons` dep + `state.json` + `/api/triage/health`
-- [ ] **Session 2** — `_build_bug_payload`, `_to_toon`, `_call_grok`, `POST /api/triage/<id>`
-- [ ] **Session 3** — `compute_signature`, GitHub helpers, dedup engine, daily quota, `POST /api/issues`, `GET /api/issues/status`, `GET /api/issues/recent`
-- [ ] **Session 4** — background poller thread + control endpoints
-- [ ] **Session 5** — UI: per-row Ticket column with 4 badge states (🟢 created / 🔁 commented / ⏳ deferred / ⚪ none), modal sticky-header for existing tickets, poller + quota header bar, recent-activity feed, deferred-queue panel
-- [ ] **Session 6** — quota rollover, deferred drain, logging, README, Docker volume
+- [x] **Session 1** — env vars + `toons` dep + `state.json` (with `controls`, `lastTicket`, `attempts[]`, `stats`) + `/api/triage/health` ✅ done
+- [x] **Session 2** — `_build_bug_payload`, `_to_toon`, `_call_grok` (returns telemetry dict: model, grokMs, tokens, payloadBytes), `POST /api/triage/<id>` ✅ done
+- [x] **Session 3** — `compute_signature`, GitHub helpers, dedup engine, daily quota, `_gate()` + `_record_attempt()`, `POST /api/issues`, `GET /api/issues/{status,recent}`, `GET /api/triage/{attempts,stats,last-ticket,controls}`, `POST /api/triage/{controls,kill,resume}` ✅ done
+- [x] **Session 4** — background poller thread (`_poller_loop` + `_poller_run_once` re-read `state.controls` every tick), `_discover_error_docs` N1QL, `_process_poller_doc` with pre-Grok short-circuits (gate + quota guard), `GET /api/poller/state`, `POST /api/poller/{pause,resume,run-now}`, `_maybe_start_poller()` at import time ✅ done
+- [x] **Session 5** — Ticket column (🟢/🔁/⏳/⚪) with severity pills + Triage-now button, `.triage-bar` (poller / quota / Last-ticket badges + Pause/Resume/Run-now/🛑 Kill/⚙ Settings + toast), Controls modal bound to `/api/triage/controls` (debounced per-field save + ✓ toast + model override), `📊 Triage stats` panel (today / 24h / lifetime + Last-ticket hero), `🧾 Recent triage attempts` feed with outcome filter pills + full-attempt JSON tooltips, `⏳ Deferred queue` panel with Force-triage, modal `🐛 Triage → GitHub` tab with sticky header + `triageRow()` manual flow, `refreshTriageBar()` polling every 15 s ✅ done
+- [x] **Session 6** — quota rollover, deferred drain, structured logging per attempt, README, Docker volume ✅ done
 
 ## Cheat-sheet of all new env vars
 
