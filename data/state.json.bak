@@ -1,0 +1,633 @@
+{
+  "quota_date": "2026-05-17",
+  "quota_used": 2,
+  "signatures": {
+    "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed": {
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": "Task orchestrator crashes on disabled analyze_metadata tool",
+      "firstDocId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "firstSeenAt": "2026-05-17T00:28:23Z",
+      "lastDocId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "lastSeenAt": "2026-05-17T00:28:23Z",
+      "count": 1,
+      "severity": "medium",
+      "labels": [
+        "bug",
+        "grok-triage",
+        "severity:medium",
+        "grok-sig:0a03ebec"
+      ]
+    },
+    "d7521589756dce70cb60a82622681e71313739ea": {
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": "read_file fails on wrong path for tests in nested project layout",
+      "firstDocId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "firstSeenAt": "2026-05-17T00:28:35Z",
+      "lastDocId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "lastSeenAt": "2026-05-17T00:28:35Z",
+      "count": 1,
+      "severity": "medium",
+      "labels": [
+        "bug",
+        "grok-triage",
+        "severity:medium",
+        "grok-sig:d7521589"
+      ]
+    }
+  },
+  "processed_docs": {
+    "c6c2cdc7-f62c-4f16-918a-9460057b992f": {
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "action": "created",
+      "at": "2026-05-17T00:28:23Z"
+    },
+    "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a": {
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "action": "created",
+      "at": "2026-05-17T00:28:35Z"
+    }
+  },
+  "deferred": [],
+  "controls": {
+    "pollerEnabled": true,
+    "issueCreationEnabled": true,
+    "skipKnownSignatures": true,
+    "skipProcessedDocs": true,
+    "modelOverride": null,
+    "killSwitch": false,
+    "updatedAt": null,
+    "updatedBy": "boot"
+  },
+  "lastTicket": {
+    "issueNumber": 2,
+    "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+    "issueTitle": "read_file fails on wrong path for tests in nested project layout",
+    "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+    "signature": "d7521589756dce70cb60a82622681e71313739ea",
+    "severity": "medium",
+    "at": "2026-05-17T00:28:35Z",
+    "model": "grok-4.3",
+    "grokMs": 10577,
+    "tokens": {
+      "completion": 297,
+      "prompt": 5285,
+      "total": 6268
+    }
+  },
+  "attempts": [
+    {
+      "id": "att-2026-05-17T00-32-22Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:32:22Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #2",
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-32-22Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:32:22Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #1",
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-31-20Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:31:20Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #2",
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-31-20Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:31:20Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #1",
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-30-37Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:30:37Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #2",
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-30-37Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:30:37Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #1",
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-29-36Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:29:36Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #2",
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-29-36Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:29:36Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #1",
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-28-35Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:28:35Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "created",
+      "reason": null,
+      "issueNumber": 2,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/2",
+      "issueTitle": "read_file fails on wrong path for tests in nested project layout",
+      "severity": "medium",
+      "model": "grok-4.3",
+      "grokMs": 10577,
+      "githubMs": 787,
+      "totalMs": 1087,
+      "tokens": {
+        "completion": 297,
+        "prompt": 5285,
+        "total": 6268
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 19701,
+        "toonSent": 19086
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-28-23Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:28:23Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "created",
+      "reason": null,
+      "issueNumber": 1,
+      "issueUrl": "https://github.com/Fujio-Turner/grokCoder_debugger/issues/1",
+      "issueTitle": "Task orchestrator crashes on disabled analyze_metadata tool",
+      "severity": "medium",
+      "model": "grok-4.3",
+      "grokMs": 15908,
+      "githubMs": 938,
+      "totalMs": 1264,
+      "tokens": {
+        "completion": 263,
+        "prompt": 6092,
+        "total": 7020
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23005,
+        "toonSent": 22392
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-27-25Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:27:25Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 7605,
+      "githubMs": 289,
+      "totalMs": 599,
+      "tokens": {
+        "completion": 399,
+        "prompt": 6464,
+        "total": 7329
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-27-17Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:27:17Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 8955,
+      "githubMs": 374,
+      "totalMs": 697,
+      "tokens": {
+        "completion": 284,
+        "prompt": 7271,
+        "total": 8063
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-26-06Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:26:06Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 9731,
+      "githubMs": 299,
+      "totalMs": 629,
+      "tokens": {
+        "completion": 407,
+        "prompt": 6464,
+        "total": 7423
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-25-56Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:25:56Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 9438,
+      "githubMs": 396,
+      "totalMs": 725,
+      "tokens": {
+        "completion": 303,
+        "prompt": 7271,
+        "total": 8171
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-24-44Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:24:44Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 6323,
+      "githubMs": 291,
+      "totalMs": 619,
+      "tokens": {
+        "completion": 251,
+        "prompt": 6464,
+        "total": 7133
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-24-37Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:24:37Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 8293,
+      "githubMs": 405,
+      "totalMs": 723,
+      "tokens": {
+        "completion": 324,
+        "prompt": 7271,
+        "total": 8233
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-23-27Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:23:27Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 8516,
+      "githubMs": 309,
+      "totalMs": 630,
+      "tokens": {
+        "completion": 348,
+        "prompt": 6464,
+        "total": 7362
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-23-17Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:23:17Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 12997,
+      "githubMs": 382,
+      "totalMs": 691,
+      "tokens": {
+        "completion": 316,
+        "prompt": 7271,
+        "total": 8079
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-22-02Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:22:02Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 11019,
+      "githubMs": 288,
+      "totalMs": 611,
+      "tokens": {
+        "completion": 333,
+        "prompt": 6464,
+        "total": 7403
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-21-50Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:21:50Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "error",
+      "reason": "github-create-failed: 403 Client Error: Forbidden for url: https://api.github.com/repos/Fujio-Turner/continue-vscode-todos-tool/issues",
+      "issueNumber": null,
+      "issueUrl": null,
+      "issueTitle": null,
+      "severity": null,
+      "model": "grok-4.3",
+      "grokMs": 7965,
+      "githubMs": 374,
+      "totalMs": 703,
+      "tokens": {
+        "completion": 283,
+        "prompt": 7271,
+        "total": 8117
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    }
+  ],
+  "stats": {
+    "today": {
+      "date": "2026-05-17",
+      "attempts": 20,
+      "created": 2,
+      "commented": 0,
+      "skipped": 8,
+      "deferred": 0,
+      "errors": 10,
+      "tokensTotal": 90601,
+      "grokMsTotal": 117327
+    },
+    "lifetime": {
+      "attempts": 20,
+      "created": 2,
+      "commented": 0,
+      "skipped": 8,
+      "deferred": 0,
+      "errors": 10,
+      "tokensTotal": 90601,
+      "grokMsTotal": 117327
+    }
+  },
+  "pollerEnabled": true,
+  "poller": {
+    "lastRun": "2026-05-17T00:32:22Z",
+    "lastError": null
+  }
+}

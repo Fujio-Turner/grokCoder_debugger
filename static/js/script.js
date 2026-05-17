@@ -4,6 +4,26 @@ let rawData = null;
 let sessionCache = {};
 let currentSession = null;
 let currentCluster = null;
+// Triage requires BOTH GROK_API_KEY and GITHUB_TOKEN. When either is
+// missing the dashboard runs in read-only mode: poller bar, stats panel,
+// attempts feed, deferred queue, Ticket column, "Triage now" buttons and
+// the "🐛 Triage → GitHub" tab are all hidden. Set on boot by
+// initTriageMode() from /api/triage/health.
+let TRIAGE_ENABLED = false;
+
+async function initTriageMode() {
+    try {
+        const r = await fetch('/api/triage/health');
+        if (!r.ok) throw new Error('health ' + r.status);
+        const h = await r.json();
+        TRIAGE_ENABLED = !!(h.grok && h.grok.configured &&
+                            h.github && h.github.configured);
+    } catch (e) {
+        console.warn('initTriageMode: defaulting to disabled —', e);
+        TRIAGE_ENABLED = false;
+    }
+    if (!TRIAGE_ENABLED) document.body.classList.add('triage-disabled');
+}
 
 // ECharts instances
 let toolErrorChart;
@@ -16,9 +36,11 @@ function initCharts() {
 }
 
 function updateCharts(data) {
-    // Tool error counts by toolName
+    // Tool error counts by toolName (works for both old `tools_called` and
+    // new `chatHistory[].toolCallStates[]` schemas — the API normalises both
+    // into the same shape so we just count by toolName here).
     const toolCounts = {};
-    data.errors.forEach(e => {
+    (data.errors || []).forEach(e => {
         const name = e.toolName || 'unknown';
         toolCounts[name] = (toolCounts[name] || 0) + 1;
     });
@@ -27,10 +49,25 @@ function updateCharts(data) {
         .map(([name, value]) => ({ value, name }))
         .sort((a, b) => b.value - a.value);
 
+    if (chartData.length === 0) {
+        toolErrorChart.clear();
+        toolErrorChart.setOption({
+            backgroundColor: 'transparent',
+            graphic: [{
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: { text: 'No tool errors 🎉', fill: '#888', fontSize: 14 }
+            }]
+        });
+        return;
+    }
+
     toolErrorChart.setOption({
         backgroundColor: 'transparent',
         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         legend: { show: false },
+        graphic: [],
         series: [{
             type: 'pie',
             radius: ['35%', '70%'],
@@ -95,10 +132,14 @@ async function loadData() {
     allReports = data.reports || [];
     rawData = data;
     updateCharts(data);
-    await loadIssueStatuses();
+    if (TRIAGE_ENABLED) await loadIssueStatuses();
     filterTable();
-    // Refresh triage observability panels in parallel.
-    loadStats(); loadAttempts(); loadDeferred(); refreshTriageBar();
+    // Refresh triage observability panels in parallel — only when triage
+    // is configured. Without GROK_API_KEY + GITHUB_TOKEN these panels are
+    // hidden by CSS and their endpoints would be useless anyway.
+    if (TRIAGE_ENABLED) {
+        loadStats(); loadAttempts(); loadDeferred(); refreshTriageBar();
+    }
 }
 
 let searchTimer = null;
@@ -391,16 +432,210 @@ function renderChatEntry(entry, index) {
     `;
 }
 
+// ── Schema helpers ──────────────────────────────────────────
+// The session document may be in one of two shapes:
+//
+//   OLD (schema.json): { src, user_prompt, tools_called[], chat_history[] }
+//   NEW (sample/chat_sample.json): { chatHistory: [ { contextItems, message,
+//                                                     promptLogs, toolCallStates } ] }
+//
+// `normalizeSession` produces a single uniform view both renderers can use.
+function normalizeSession(data) {
+    data = data || {};
+    const isNew = Array.isArray(data.chatHistory);
+    if (!isNew) {
+        return {
+            schema: 'old',
+            src: data.src || '',
+            userPrompt: data.user_prompt || '',
+            toolsCalled: data.tools_called || [],
+            chatEntries: (data.chat_history || []).map(c => ({
+                role: c.role || 'unknown',
+                content: c.content,
+                toolCallStates: [],
+                promptLogs: [],
+                contextItems: [],
+            })),
+        };
+    }
+
+    // New schema: flatten chatHistory entries.
+    const entries = data.chatHistory.map(ch => {
+        const msg = ch.message || {};
+        return {
+            role: msg.role || 'unknown',
+            messageId: msg.id || '',
+            content: msg.content,                // string OR [{text,type}]
+            toolCalls: msg.toolCalls || [],      // assistant's requested calls
+            toolCallStates: ch.toolCallStates || [],
+            promptLogs: ch.promptLogs || [],
+            contextItems: ch.contextItems || [],
+        };
+    });
+    // Derive a flat "tools called" list (for the overview count + chart parity).
+    const toolsFlat = [];
+    entries.forEach(e => (e.toolCallStates || []).forEach(tcs => {
+        const fn = (tcs.tool && tcs.tool.function) || (tcs.toolCall && tcs.toolCall.function) || {};
+        toolsFlat.push({
+            name: fn.name || 'unknown',
+            params: tcs.parsedArgs || {},
+            error: tcs.error || {},
+            response: tcs.output,
+            status: tcs.status,
+            meta: {},
+        });
+    }));
+    // Pull the first user message's text as the "user prompt".
+    let userPrompt = '';
+    for (const e of entries) {
+        if (e.role === 'user') { userPrompt = contentToText(e.content); break; }
+    }
+    return {
+        schema: 'new',
+        src: '',
+        userPrompt,
+        toolsCalled: toolsFlat,
+        chatEntries: entries,
+    };
+}
+
+// `message.content` may be a string OR an array of { text, type } parts.
+function contentToText(c) {
+    if (c == null) return '';
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) {
+        return c.map(p => (p && typeof p === 'object' && 'text' in p) ? p.text : String(p)).join('\n');
+    }
+    return JSON.stringify(c, null, 2);
+}
+
+function renderContextItems(items) {
+    if (!items || items.length === 0) return '';
+    return `
+      <div class="debug-label">Context Items (${items.length})</div>
+      <div class="debug-value">
+        ${items.map(ci => `
+          <div style="margin-bottom:6px;">
+            <strong>${escapeHtml(ci.name || ci.description || ci.id?.itemId || 'item')}</strong>
+            <small style="color:#888;"> ${escapeHtml(ci.id?.providerTitle || '')}</small>
+            ${ci.content ? `<pre class="debug-json">${escapeHtml(String(ci.content).slice(0, 1500))}</pre>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+}
+
+function renderPromptLogs(logs) {
+    if (!logs || logs.length === 0) return '';
+    return logs.map((pl, i) => `
+      <div class="debug-section priority-low">
+        <div class="debug-section-header tool-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span>📜 Prompt log #${i} — ${escapeHtml(pl.modelTitle || pl.modelProvider || 'model')}</span>
+          <span class="collapse-arrow">▼</span>
+        </div>
+        <div class="debug-section-body tool-card-body">
+          <div class="debug-label">Prompt</div>
+          <div class="debug-value"><pre class="debug-json">${escapeHtml(pl.prompt || '')}</pre></div>
+          <div class="debug-label">Completion</div>
+          <div class="debug-value"><pre class="debug-json">${escapeHtml(pl.completion || '')}</pre></div>
+        </div>
+      </div>
+    `).join('');
+}
+
+// Renders a toolCallStates[] entry from the new schema as a tool card.
+function renderToolCallState(tcs, index) {
+    const fn = (tcs.tool && tcs.tool.function) || (tcs.toolCall && tcs.toolCall.function) || {};
+    const name = fn.name || `tool_${index}`;
+    const title = (tcs.tool && tcs.tool.displayTitle) || name;
+    const status = tcs.status || 'unknown';
+    const hasError = status === 'errored' || (tcs.error && Object.keys(tcs.error).length > 0);
+    const priorityClass = hasError ? 'priority-high' : 'priority-low';
+    const icon = hasError ? '⚠️' : (status === 'done' ? '✅' : '🔧');
+
+    let body = '';
+    if (tcs.parsedArgs && Object.keys(tcs.parsedArgs).length > 0) {
+        body += `<div class="debug-label">Params</div><div class="debug-value">${renderJsonValue(tcs.parsedArgs)}</div>`;
+    } else if (tcs.toolCall?.function?.arguments) {
+        body += `<div class="debug-label">Arguments (raw)</div><div class="debug-value">${renderJsonValue(tcs.toolCall.function.arguments)}</div>`;
+    }
+    if (hasError) {
+        body += `<div class="debug-label">Error</div><div class="debug-value error-highlight">${renderJsonValue(tcs.error || {})}</div>`;
+    }
+    if (tcs.output) {
+        body += `<div class="debug-label">Output</div><div class="debug-value">${renderJsonValue(tcs.output)}</div>`;
+    }
+
+    return `
+        <div class="debug-section ${priorityClass}">
+            <div class="debug-section-header tool-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <span>${icon} #${index} — ${escapeHtml(title)} <span class="tool-time">(${escapeHtml(status)})</span></span>
+                <span class="collapse-arrow">▼</span>
+            </div>
+            <div class="debug-section-body tool-card-body">${body || '<em style="color:#888;">(no payload)</em>'}</div>
+        </div>
+    `;
+}
+
+// Renders one chatHistory[] entry from the new schema, including any
+// embedded toolCallStates and promptLogs.
+function renderChatHistoryEntry(entry, index) {
+    const role = entry.role || 'unknown';
+    const icon = role === 'user' ? '👤' : role === 'assistant' ? '🤖' : role === 'tool' ? '🔧' : '💬';
+    const text = contentToText(entry.content);
+    const toolCallCount = (entry.toolCallStates || []).length
+        + (entry.toolCalls ? entry.toolCalls.length : 0);
+    const summary = toolCallCount > 0 ? ` <small style="color:#888;">· ${toolCallCount} tool call(s)</small>` : '';
+
+    let body = '';
+    if (entry.contextItems && entry.contextItems.length > 0) {
+        body += renderContextItems(entry.contextItems);
+    }
+    if (text) {
+        body += `<div class="debug-label">Content</div>
+                 <div class="debug-value"><pre class="debug-json">${escapeHtml(text)}</pre></div>`;
+    }
+    // Assistant `toolCalls` (requested) — only show if we don't have toolCallStates for them.
+    if ((entry.toolCalls || []).length > 0 && (entry.toolCallStates || []).length === 0) {
+        body += `<div class="debug-label">Requested Tool Calls</div>
+                 <div class="debug-value">${renderJsonValue(entry.toolCalls)}</div>`;
+    }
+    if ((entry.toolCallStates || []).length > 0) {
+        body += `<div class="debug-label">Tool Call States</div>`;
+        body += `<div class="debug-value">${entry.toolCallStates.map((t, i) => renderToolCallState(t, i)).join('')}</div>`;
+    }
+    if ((entry.promptLogs || []).length > 0) {
+        body += `<div class="debug-label">Prompt Logs</div>`;
+        body += `<div class="debug-value">${renderPromptLogs(entry.promptLogs)}</div>`;
+    }
+
+    return `
+        <div class="debug-section priority-low">
+            <div class="debug-section-header tool-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <span>${icon} #${index} — ${escapeHtml(role)}${summary}</span>
+                <span class="collapse-arrow">▼</span>
+            </div>
+            <div class="debug-section-body tool-card-body">${body || '<em style="color:#888;">(empty)</em>'}</div>
+        </div>
+    `;
+}
+
 function renderAiInputs(error, report, session) {
     const container = document.getElementById('tabAi');
     const data = session || {};
+    const norm = normalizeSession(data);
 
-    const userPrompt = data.user_prompt || error?.userPrompt || report?.user_prompt || '';
-    const src = data.src || report?.src || '';
-    const toolsCalled = data.tools_called || [];
-    const chatHistory = data.chat_history || [];
+    const userPrompt = norm.userPrompt
+        || error?.userPrompt
+        || report?.user_prompt
+        || '';
 
-    let html = `<h3>🤖 Session Details</h3>`;
+    // Error count derived from embedded toolCallStates (new) or top-level tools (old).
+    const erroredToolCount = norm.toolsCalled.filter(t =>
+        (t.status === 'errored') || (t.error && Object.keys(t.error).length > 0)
+    ).length;
+
+    let html = `<h3>🤖 Session Details <small style="color:#888;font-weight:normal;">[${norm.schema} schema]</small></h3>`;
 
     // Overview card
     html += `
@@ -409,11 +644,11 @@ function renderAiInputs(error, report, session) {
             <div class="debug-section-body">
                 <div class="overview-grid">
                     <div class="debug-label">Source</div>
-                    <div class="debug-value">${escapeHtml(src) || '-'}</div>
-                    <div class="debug-label">Tools Called</div>
-                    <div class="debug-value">${toolsCalled.length}</div>
-                    <div class="debug-label">Chat History</div>
-                    <div class="debug-value">${chatHistory.length} entries</div>
+                    <div class="debug-value">${escapeHtml(norm.src) || '-'}</div>
+                    <div class="debug-label">Chat Entries</div>
+                    <div class="debug-value">${norm.chatEntries.length}</div>
+                    <div class="debug-label">Tool Calls</div>
+                    <div class="debug-value">${norm.toolsCalled.length}${erroredToolCount ? ` <span style="color:#f14c4c;">(${erroredToolCount} errored)</span>` : ''}</div>
                 </div>
             </div>
         </div>
@@ -424,7 +659,7 @@ function renderAiInputs(error, report, session) {
         html += `
             <div class="debug-section priority-high">
                 <div class="debug-section-header">
-                    <span>📝 User Prompt</span>
+                    <span>📝 First User Prompt</span>
                     <button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard(this, ${JSON.stringify(JSON.stringify(userPrompt))})">📋</button>
                 </div>
                 <div class="debug-section-body">
@@ -434,16 +669,21 @@ function renderAiInputs(error, report, session) {
         `;
     }
 
-    // Tools Called
-    if (toolsCalled.length > 0) {
-        html += `<h3>🔧 Tools Called (${toolsCalled.length})</h3>`;
-        html += toolsCalled.map((t, i) => renderToolCard(t, i)).join('');
-    }
-
-    // Chat History
-    if (chatHistory.length > 0) {
-        html += `<h3>💬 Chat History (${chatHistory.length})</h3>`;
-        html += chatHistory.map((c, i) => renderChatEntry(c, i)).join('');
+    if (norm.schema === 'new') {
+        // Render the unified chatHistory list — tools/prompt logs are nested
+        // within their parent message, which matches the new doc shape.
+        html += `<h3>💬 Chat History (${norm.chatEntries.length})</h3>`;
+        html += norm.chatEntries.map((c, i) => renderChatHistoryEntry(c, i)).join('');
+    } else {
+        // Old schema — keep prior rendering.
+        if (norm.toolsCalled.length > 0) {
+            html += `<h3>🔧 Tools Called (${norm.toolsCalled.length})</h3>`;
+            html += norm.toolsCalled.map((t, i) => renderToolCard(t, i)).join('');
+        }
+        if (norm.chatEntries.length > 0) {
+            html += `<h3>💬 Chat History (${norm.chatEntries.length})</h3>`;
+            html += norm.chatEntries.map((c, i) => renderChatEntry(c, i)).join('');
+        }
     }
 
     // Copy full JSON button at bottom
@@ -502,7 +742,9 @@ document.getElementById('jsonModal').addEventListener('click', e => {
 });
 
 initCharts();
-loadData();
+// Resolve TRIAGE_ENABLED BEFORE loadData() so the triage fetches it
+// guards are skipped on cold-start when the env isn't configured.
+initTriageMode().then(loadData);
 
 // Cluster Manager Functions
 async function openClusterManager() {
@@ -1164,6 +1406,11 @@ function renderTriageTab(docId, error, report, session) {
 
 // ── Boot ────────────────────────────────────────────────────
 
-// Periodic refresh of the triage bar (15 s).
-setInterval(refreshTriageBar, 15000);
-refreshTriageBar();
+// Periodic refresh of the triage bar (15 s) — only when triage is
+// configured. In read-only mode the bar is hidden so we skip the polling
+// entirely to avoid noise in the network panel.
+initTriageMode().then(() => {
+    if (!TRIAGE_ENABLED) return;
+    setInterval(refreshTriageBar, 15000);
+    refreshTriageBar();
+});

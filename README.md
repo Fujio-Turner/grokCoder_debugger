@@ -73,7 +73,7 @@ CB_COLLECTION=report
 | `GROK_TIMEOUT_SEC` | No | `360` | HTTP timeout for Grok calls (premium models are slow) |
 | `GITHUB_TOKEN` | No | — | Fine-grained PAT with `Issues: Read & Write` on the target repo |
 | `GITHUB_REPO` | No | `Fujio-Turner/continue-vscode-todos-tool` | `owner/repo` to file triage issues into |
-| `DAILY_ISSUE_QUOTA` | No | `10` | Maximum GitHub issues the pipeline may create per UTC day |
+| `DAILY_ISSUE_QUOTA` | No | `40` | Maximum GitHub issues the pipeline may create per UTC day |
 | `POLL_INTERVAL_SEC` | No | `60` | Background poller cadence in seconds |
 | `POLLER_ENABLED` | No | `true` | Start the background poller on boot |
 | `STATE_FILE` | No | `/data/state.json` | Persisted dedup + quota state (Docker volume) |
@@ -236,7 +236,7 @@ a deduped GitHub Issue in `GITHUB_REPO`. Manual one-off triage from the UI
 | `GROK_TIMEOUT_SEC` | `360` | HTTP timeout (premium models are slow) |
 | `GITHUB_TOKEN` | — | Fine-grained PAT with `Issues: Read & Write` |
 | `GITHUB_REPO` | `Fujio-Turner/continue-vscode-todos-tool` | target repo |
-| `DAILY_ISSUE_QUOTA` | `10` | max issues created per UTC day |
+| `DAILY_ISSUE_QUOTA` | `40` | max issues created per UTC day |
 | `POLL_INTERVAL_SEC` | `60` | background poller cadence |
 | `POLLER_ENABLED` | `true` | auto-start the poller on boot |
 | `STATE_FILE` | `/data/state.json` | persisted dedup + quota state |
@@ -247,16 +247,33 @@ The pipeline authenticates to the GitHub REST API as a Bearer token, so it
 needs a personal access token (PAT) with **write access to Issues** on the
 target repo. A **fine-grained PAT** is strongly preferred (least privilege):
 
-1. Go to GitHub → **Settings → Developer settings → Personal access tokens
-   → Fine-grained tokens** → **Generate new token**.
-2. **Resource owner:** the owner of `GITHUB_REPO` (e.g. `Fujio-Turner`).
-3. **Repository access:** **Only select repositories** → pick the target
-   repo (e.g. `continue-vscode-todos-tool`).
-4. **Repository permissions:** set **Issues** → **Read and write**.
-   (Leave everything else as "No access".)
-5. Click **Generate token** and copy the `github_pat_…` value — it is only
-   shown once.
-6. Add it to your `.env`:
+**Fastest path — direct link:**
+[https://github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)
+
+**Or navigate manually:**
+
+1. Click your profile picture (top-right) → **Settings**.
+2. In the **left sidebar**, scroll all the way to the **bottom** and click
+   **Developer settings**. (It's the last item in the sidebar and is easy
+   to miss — if you don't see it, scroll down further.)
+3. In the left sidebar of the Developer settings page, expand
+   **Personal access tokens** → click **Fine-grained tokens**.
+4. Click **Generate new token**.
+5. Fill in the form:
+   - **Token name:** something descriptive, e.g. `grokcoder-debugger-triage`.
+   - **Expiration:** pick a duration (1–366 days; GitHub no longer allows
+     non-expiring fine-grained tokens).
+   - **Resource owner:** the owner of `GITHUB_REPO` (e.g. `Fujio-Turner`).
+     If this is an organization, an admin may need to approve the token
+     before it works.
+   - **Repository access:** **Only select repositories** → pick the target
+     repo (e.g. `continue-vscode-todos-tool`).
+   - **Repository permissions:** expand the section and set **Issues** →
+     **Read and write**. (`Metadata` → `Read-only` gets selected
+     automatically. Leave everything else as "No access".)
+6. Click **Generate token** and copy the `github_pat_…` value immediately
+   — it is only shown once.
+7. Add it to your `.env`:
 
    ```env
    GITHUB_TOKEN=github_pat_xxxxxxxxxxxxxxxxxxxxxxxx

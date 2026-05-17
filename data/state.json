@@ -1,0 +1,633 @@
+{
+  "quota_date": "2026-05-17",
+  "quota_used": 2,
+  "signatures": {
+    "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed": {
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": "Task orchestrator still mandates disabled analyze_metadata tool",
+      "firstDocId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "firstSeenAt": "2026-05-17T00:37:00Z",
+      "lastDocId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "lastSeenAt": "2026-05-17T00:37:00Z",
+      "count": 1,
+      "severity": "high",
+      "labels": [
+        "bug",
+        "grok-triage",
+        "severity:high",
+        "grok-sig:0a03ebec"
+      ]
+    },
+    "d7521589756dce70cb60a82622681e71313739ea": {
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": "Agent hallucinates PHP refactor plan inside unrelated Continue TS repo",
+      "firstDocId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "firstSeenAt": "2026-05-17T00:37:14Z",
+      "lastDocId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "lastSeenAt": "2026-05-17T00:37:14Z",
+      "count": 1,
+      "severity": "high",
+      "labels": [
+        "bug",
+        "grok-triage",
+        "severity:high",
+        "grok-sig:d7521589"
+      ]
+    }
+  },
+  "processed_docs": {
+    "c6c2cdc7-f62c-4f16-918a-9460057b992f": {
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "action": "created",
+      "at": "2026-05-17T00:37:00Z"
+    },
+    "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a": {
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "action": "created",
+      "at": "2026-05-17T00:37:14Z"
+    }
+  },
+  "deferred": [],
+  "controls": {
+    "pollerEnabled": true,
+    "issueCreationEnabled": true,
+    "skipKnownSignatures": true,
+    "skipProcessedDocs": true,
+    "modelOverride": null,
+    "killSwitch": false,
+    "updatedAt": null,
+    "updatedBy": "boot"
+  },
+  "lastTicket": {
+    "issueNumber": 5,
+    "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+    "issueTitle": "Agent hallucinates PHP refactor plan inside unrelated Continue TS repo",
+    "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+    "signature": "d7521589756dce70cb60a82622681e71313739ea",
+    "severity": "high",
+    "at": "2026-05-17T00:37:14Z",
+    "model": "grok-4.3",
+    "grokMs": 13430,
+    "tokens": {
+      "completion": 322,
+      "prompt": 6464,
+      "total": 7312
+    }
+  },
+  "attempts": [
+    {
+      "id": "att-2026-05-17T00-46-06Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:46:06Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-46-06Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:46:06Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-45-05Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:45:05Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-45-05Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:45:05Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-44-04Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:44:04Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-44-04Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:44:04Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-43-23Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:43:23Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-43-23Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:43:23Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-42-21Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:42:21Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-42-21Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:42:21Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-41-20Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:41:20Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-41-20Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:41:20Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-40-19Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:40:19Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-40-19Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:40:19Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-39-17Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:39:17Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-39-17Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:39:17Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-38-16Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:38:16Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #5",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-38-16Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:38:16Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "skipped-doc-processed",
+      "reason": "already filed as #4",
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": null,
+      "severity": null,
+      "model": null,
+      "grokMs": 0,
+      "githubMs": 0,
+      "totalMs": 0,
+      "tokens": {
+        "prompt": 0,
+        "completion": 0,
+        "total": 0
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 0,
+        "toonSent": 0
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-37-14Z-952e4af2-bcc3-4d5d-be5d-",
+      "at": "2026-05-17T00:37:14Z",
+      "docId": "952e4af2-bcc3-4d5d-be5d-b8b231a79d2a",
+      "signature": "d7521589756dce70cb60a82622681e71313739ea",
+      "outcome": "created",
+      "reason": null,
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/5",
+      "issueTitle": "Agent hallucinates PHP refactor plan inside unrelated Continue TS repo",
+      "severity": "high",
+      "model": "grok-4.3",
+      "grokMs": 13430,
+      "githubMs": 773,
+      "totalMs": 1087,
+      "tokens": {
+        "completion": 322,
+        "prompt": 6464,
+        "total": 7312
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 23562,
+        "toonSent": 22755
+      },
+      "trigger": "poller"
+    },
+    {
+      "id": "att-2026-05-17T00-37-00Z-c6c2cdc7-f62c-4f16-918a-",
+      "at": "2026-05-17T00:37:00Z",
+      "docId": "c6c2cdc7-f62c-4f16-918a-9460057b992f",
+      "signature": "0a03ebec3956ab1ae4b468ddd62b3806f64d62ed",
+      "outcome": "created",
+      "reason": null,
+      "issueNumber": 4,
+      "issueUrl": "https://github.com/Fujio-Turner/continue-vscode-todos-tool/issues/4",
+      "issueTitle": "Task orchestrator still mandates disabled analyze_metadata tool",
+      "severity": "high",
+      "model": "grok-4.3",
+      "grokMs": 6420,
+      "githubMs": 869,
+      "totalMs": 1175,
+      "tokens": {
+        "completion": 346,
+        "prompt": 7271,
+        "total": 8000
+      },
+      "payloadBytes": {
+        "jsonEquivalent": 26866,
+        "toonSent": 26061
+      },
+      "trigger": "poller"
+    }
+  ],
+  "stats": {
+    "today": {
+      "date": "2026-05-17",
+      "attempts": 50,
+      "created": 2,
+      "commented": 0,
+      "skipped": 48,
+      "deferred": 0,
+      "errors": 0,
+      "tokensTotal": 15312,
+      "grokMsTotal": 19850
+    },
+    "lifetime": {
+      "attempts": 50,
+      "created": 2,
+      "commented": 0,
+      "skipped": 48,
+      "deferred": 0,
+      "errors": 0,
+      "tokensTotal": 15312,
+      "grokMsTotal": 19850
+    }
+  },
+  "pollerEnabled": true,
+  "poller": {
+    "lastRun": "2026-05-17T00:59:19Z",
+    "lastError": null
+  }
+}

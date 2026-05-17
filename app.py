@@ -54,7 +54,7 @@ GROK_TIMEOUT_SEC = int(os.environ.get('GROK_TIMEOUT_SEC', '360'))
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 GITHUB_REPO = os.environ.get('GITHUB_REPO', 'Fujio-Turner/continue-vscode-todos-tool')
 
-DAILY_ISSUE_QUOTA = int(os.environ.get('DAILY_ISSUE_QUOTA', '10'))
+DAILY_ISSUE_QUOTA = int(os.environ.get('DAILY_ISSUE_QUOTA', '40'))
 POLL_INTERVAL_SEC = int(os.environ.get('POLL_INTERVAL_SEC', '60'))
 POLLER_ENABLED = os.environ.get('POLLER_ENABLED', 'true').lower() in ('1', 'true', 'yes', 'on')
 STATE_FILE = os.environ.get('STATE_FILE', '/data/state.json')
@@ -301,41 +301,58 @@ def get_errors():
     else:
         start = datetime(2020, 1, 1)
     start_str = start.isoformat() + 'Z'
-    # Query tools_called for errors
+    # Query chatHistory[].toolCallStates[] for errored tool calls (new schema).
+    # Each chatHistory entry can carry toolCallStates whose status='errored'
+    # contains the failure info we surface in the dashboard.
     tools_errors_query = f"""
-        SELECT META(d).id as sessionId, d.src, d.user_prompt,
-               t.name as toolName, t.error, t.meta, t.params, t.response
-        FROM {fqn} d UNNEST d.tools_called t
-        WHERE t.error IS NOT MISSING AND t.error != {{}}
+        SELECT META(d).id as sessionId,
+               IFMISSINGORNULL(tcs.tool.function.name,
+                   IFMISSINGORNULL(tcs.toolCall.function.name, 'unknown')) as toolName,
+               IFMISSINGORNULL(tcs.tool.displayTitle, '') as toolDisplayTitle,
+               tcs.error as error,
+               tcs.status as status,
+               tcs.parsedArgs as params
+        FROM {fqn} d
+        UNNEST d.chatHistory ch
+        UNNEST ch.toolCallStates tcs
+        WHERE tcs.status = 'errored' OR (tcs.error IS NOT MISSING AND tcs.error != {{}})
         ORDER BY META(d).id DESC
         LIMIT 200
     """
-    # Query all reports for listing
+    # Listing query for the new schema.
+    # NOTE: `role` is a SQL++ reserved word, so any reference must be backticked.
     reports_query = f"""
-        SELECT META(d).id as docId, d.src, d.user_prompt, d.`~meta`,
-               ARRAY_LENGTH(d.tools_called) as toolCount,
-               ARRAY_LENGTH(d.chat_history) as chatHistoryLen
+        SELECT META(d).id as docId,
+               ARRAY_LENGTH(d.chatHistory) as chatHistoryLen,
+               ARRAY_LENGTH(
+                   ARRAY m FOR m IN d.chatHistory
+                   WHEN m.message.`role` = 'assistant' END
+               ) as assistantMsgCount
         FROM {fqn} d
         ORDER BY META(d).id DESC
         LIMIT 200
     """
     tools_errors = query_couchbase(tools_errors_query, config=cluster_config)
     reports = query_couchbase(reports_query, config=cluster_config)
-    
+
     session_ids = set()
     all_errors = []
-    
+
     for t in tools_errors:
         sid = t.get('sessionId', '')
         session_ids.add(sid)
+        err_obj = t.get('error') or {}
+        err_msg = err_obj.get('message') or err_obj.get('code') or t.get('status') or ''
+        title = t.get('toolDisplayTitle') or t.get('toolName') or 'unknown'
+        desc = f"[{t.get('toolName', 'unknown')}] {err_msg or title}"
         all_errors.append({
             'type': 'tool_error',
             'sessionId': sid,
             'toolName': t.get('toolName', 'unknown'),
-            'description': f"[{t.get('toolName', 'unknown')}] {t.get('src', '')}",
-            'details': json.dumps(t.get('error', {})),
-            'userPrompt': t.get('user_prompt', ''),
-            'execTime': (t.get('meta') or {}).get('exec_time', 0),
+            'description': desc,
+            'details': json.dumps(err_obj),
+            'userPrompt': '',
+            'execTime': None,
         })
     
     return jsonify({
@@ -372,7 +389,12 @@ def search_fts():
         "fields": ["*"],
         "highlight": {
             "style": "html",
-            "fields": ["user_prompt", "src", "tools_called.name", "tools_called.params"]
+            "fields": [
+                "chatHistory.message.content",
+                "chatHistory.toolCallStates.tool.function.name",
+                "chatHistory.toolCallStates.error.message",
+                "chatHistory.toolCallStates.parsedArgs"
+            ]
         }
     }
 
@@ -778,6 +800,19 @@ def _build_bug_payload(session_doc: dict) -> dict:
         else:
             chat_tail.append({'role': '', 'content': _truncate_str(str(entry))})
 
+    # Optional repo block — captured by the grokCoder VS Code extension when
+    # the workspace is a git checkout. Tells Grok which branch / commit the
+    # bug was observed on, so the proposed fix targets the right ref even if
+    # the user is working on a feature branch that has diverged from default.
+    # All sub-fields are best-effort; absence is fine.
+    repo_block_raw = session_doc.get('repo') or {}
+    repo_block = {}
+    if isinstance(repo_block_raw, dict):
+        for k in ('name', 'branch', 'commit', 'remoteUrl', 'dirty'):
+            v = repo_block_raw.get(k)
+            if v not in (None, ''):
+                repo_block[k] = v
+
     payload = {
         'docId': doc_id,
         'src': src,
@@ -785,6 +820,8 @@ def _build_bug_payload(session_doc: dict) -> dict:
         'toolErrors': tool_errors,
         'chatTail': chat_tail,
     }
+    if repo_block:
+        payload['repo'] = repo_block
 
     # Cost guard: drop chatTail first, then truncate errors if still too big.
     if len(json.dumps(payload, default=str)) > _MAX_PAYLOAD_BYTES:
@@ -913,13 +950,40 @@ def _call_grok(bug_payload: dict, repo_context: dict, model_override: str = None
 
     system = (
         "You are a senior code reviewer for the repo named in 'repo.repo'. "
-        "Inputs are TOON-encoded (Token-Oriented Object Notation). "
-        "TOON uses key:value with indentation for nesting; arrays like "
-        "items[N]{a,b}: followed by CSV rows. "
-        "Return STRICT JSON (NOT TOON) with keys: "
-        "problems[], rca, fixes[{file?,description,patch?}], "
-        "suggestedTitle, severity(low|medium|high|critical), "
-        "signatureHint (1-line normalized fingerprint of the failure)."
+        "Inputs are TOON-encoded (Token-Oriented Object Notation): key:value "
+        "with indentation for nesting; arrays look like items[N]{a,b}: "
+        "followed by CSV rows.\n\n"
+        "IMPORTANT — branch awareness: the bug was observed on the branch "
+        "named in 'bug.repo.branch' (if present); the repo's default branch "
+        "is in 'repo.branch'. When proposing fixes, target the BUG'S branch "
+        "(it may diverge from default). If only one is known, use that. "
+        "If both are present and differ, mention the divergence explicitly.\n\n"
+        "Be specific and evidence-driven: quote exact error strings, file "
+        "paths, and tool arguments from the payload. Prefer short paragraphs "
+        "and bullets over one-liners, but do not pad.\n\n"
+        "Return STRICT JSON (NOT TOON, NOT Markdown) with EXACTLY these keys:\n"
+        "  - problems[]: 2–5 observable symptoms, each citing exact error/"
+        "tool/file from the payload.\n"
+        "  - rca: 2–4 short paragraphs covering what was attempted, which "
+        "code path failed, the underlying defect class, and why retry won't "
+        "fix it. Quote payload values as evidence.\n"
+        "  - reproduction: numbered steps a dev can run to reproduce (files, "
+        "commands, inputs). Note non-determinism if any.\n"
+        "  - impact: 1 short paragraph on user-visible impact, blast radius, "
+        "and any workaround.\n"
+        "  - evidence[]: 2–4 verbatim quotes from the payload (error msgs, "
+        "tool params/responses) justifying the RCA. Backtick code-like ones.\n"
+        "  - fixes[]: 1–3 {file?, description, patch?} objects. When "
+        "possible give both a minimal hot-fix and a correct fix. Each "
+        "description explains WHY it works. Include a unified-diff `patch` "
+        "when inferable. State which branch the patch targets.\n"
+        "  - relatedAreas[]: 0–4 other files/modules/tests likely affected.\n"
+        "  - suggestedTitle: <=80 chars, action-oriented, names the failing "
+        "tool/file and the symptom.\n"
+        "  - severity: 'low' | 'medium' | 'high' | 'critical'.\n"
+        "  - signatureHint: 1-line normalized fingerprint of the failure "
+        "(tool+error-class+first-frame-symbol; no timestamps, no IDs, no "
+        "full paths) — stable across retries of the same bug."
     )
     user = f"### BUG (TOON)\n{bug_toon}\n\n### REPO (TOON)\n{repo_toon}"
     body = {
@@ -1198,6 +1262,16 @@ def _format_issue_body(triage, bug, sig):
     fixes_md = '\n'.join(fixes_md_parts) if fixes_md_parts else '- (none returned)'
 
     rca = triage.get('rca') or '(none returned)'
+    reproduction = triage.get('reproduction') or '(none returned)'
+    impact = triage.get('impact') or '(none returned)'
+
+    evidence = triage.get('evidence') or []
+    evidence_md = '\n'.join(f'- {e}' for e in evidence) if evidence \
+        else '- (none returned)'
+
+    related = triage.get('relatedAreas') or []
+    related_md = '\n'.join(f'- `{r}`' for r in related) if related \
+        else '- (none returned)'
 
     bug_toon = ''
     try:
@@ -1206,10 +1280,26 @@ def _format_issue_body(triage, bug, sig):
     except Exception as e:
         bug_toon = f'<toon encoding failed: {e}>'
 
+    # Branch context — if the session doc carried a `repo` block, surface
+    # the branch / commit so reviewers know which ref the bug came from
+    # and where the fix should land.
+    repo_meta = (bug or {}).get('repo') or {}
+    branch_line = ''
+    if repo_meta.get('branch') or repo_meta.get('commit'):
+        bits = []
+        if repo_meta.get('branch'):
+            bits.append(f"branch=`{repo_meta['branch']}`")
+        if repo_meta.get('commit'):
+            short = str(repo_meta['commit'])[:12]
+            bits.append(f"commit=`{short}`")
+        if repo_meta.get('dirty'):
+            bits.append('⚠ working tree dirty')
+        branch_line = f"\n> Observed on: {' · '.join(bits)}"
+
     body = f"""> Auto-filed by **grokCoder Debugger**.
 > <!-- grokcoder-debugger-id:{doc_id} -->
 > <!-- grokcoder-signature:{sig} -->
-> First seen in session: `{doc_id}` (`src={src}`)
+> First seen in session: `{doc_id}` (`src={src}`){branch_line}
 
 ## Problems
 {problems_md}
@@ -1217,8 +1307,20 @@ def _format_issue_body(triage, bug, sig):
 ## Root-Cause Analysis
 {rca}
 
+## Impact
+{impact}
+
+## Reproduction
+{reproduction}
+
+## Evidence (from payload)
+{evidence_md}
+
 ## Suggested Fix(es)
 {fixes_md}
+
+## Related Areas to Inspect
+{related_md}
 
 ---
 <details><summary>Original bug payload (TOON)</summary>
@@ -1277,10 +1379,20 @@ def _record_attempt(state, *, doc_id, signature, outcome,
         'payloadBytes': payload_bytes or {'jsonEquivalent': 0, 'toonSent': 0},
         'trigger': trigger,
     }
-    attempts = state.setdefault('attempts', [])
-    attempts.insert(0, att)
-    if len(attempts) > _ATTEMPTS_CAP:
-        del attempts[_ATTEMPTS_CAP:]
+    # Suppress the per-attempt ring-buffer entry when the poller is just
+    # re-confirming a previously-filed doc/signature. Every poller tick
+    # would otherwise enqueue one of these per known error, drowning real
+    # events in noise. Stats counters below still tick, the structured
+    # log line still prints, and manual "Triage now" clicks (trigger
+    # != 'poller') are still recorded so user-initiated actions get UI
+    # feedback.
+    _SUPPRESS_IN_FEED = {'skipped-doc-processed', 'skipped-known-signature'}
+    suppress = (trigger == 'poller' and outcome in _SUPPRESS_IN_FEED)
+    if not suppress:
+        attempts = state.setdefault('attempts', [])
+        attempts.insert(0, att)
+        if len(attempts) > _ATTEMPTS_CAP:
+            del attempts[_ATTEMPTS_CAP:]
 
     bucket_key = _OUTCOME_BUCKET.get(outcome, 'skipped')
     for slot in ('today', 'lifetime'):

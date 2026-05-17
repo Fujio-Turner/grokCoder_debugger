@@ -159,6 +159,19 @@
 /* Session 5: Triage UI                                        */
 /* ─────────────────────────────────────────────────────────── */
 
+/* Read-only mode: when GROK_API_KEY or GITHUB_TOKEN are not set,
+   the dashboard hides all create-ticket UI. Backend still refuses
+   the writes (503), this just removes the buttons / tabs / panels
+   so viewers don't see broken controls. */
+body.triage-disabled #triageBar,
+body.triage-disabled #statsPanel,
+body.triage-disabled #attemptsPanel,
+body.triage-disabled #deferredPanel,
+body.triage-disabled .modal-tab.triage-tab,
+body.triage-disabled .ticket-btn,
+body.triage-disabled #errorTable th:nth-child(5),
+body.triage-disabled #errorTable td:nth-child(5) { display:none !important; }
+
 .triage-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
               background:#252526; padding:10px 15px; border-radius:8px;
               margin-bottom:14px; border:1px solid #333; }
