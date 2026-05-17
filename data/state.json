@@ -605,20 +605,20 @@
   "stats": {
     "today": {
       "date": "2026-05-17",
-      "attempts": 50,
+      "attempts": 92,
       "created": 2,
       "commented": 0,
-      "skipped": 48,
+      "skipped": 90,
       "deferred": 0,
       "errors": 0,
       "tokensTotal": 15312,
       "grokMsTotal": 19850
     },
     "lifetime": {
-      "attempts": 50,
+      "attempts": 92,
       "created": 2,
       "commented": 0,
-      "skipped": 48,
+      "skipped": 90,
       "deferred": 0,
       "errors": 0,
       "tokensTotal": 15312,
@@ -627,7 +627,7 @@
   },
   "pollerEnabled": true,
   "poller": {
-    "lastRun": "2026-05-17T00:59:19Z",
+    "lastRun": "2026-05-17T01:19:51Z",
     "lastError": null
   }
 }
